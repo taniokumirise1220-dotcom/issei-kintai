@@ -6,9 +6,15 @@ export async function POST() {
     CREATE TABLE IF NOT EXISTS employees (
       id SERIAL PRIMARY KEY,
       name VARCHAR(100) NOT NULL,
-      daily_rate INTEGER NOT NULL
+      daily_rate INTEGER NOT NULL,
+      family_allowance INTEGER DEFAULT 0,
+      rent_deduction INTEGER DEFAULT 0
     )
   `);
+
+  // 既存テーブルへのカラム追加（マイグレーション）
+  await query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS family_allowance INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS rent_deduction INTEGER DEFAULT 0`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS attendance (
