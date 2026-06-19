@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+:root {
+  --navy: #1B2B5E;
+  --navy-dark: #0F1A3D;
+  --navy-light: #2A3F7A;
+  --gold: #C9A84C;
+  --gold-light: #E2C97E;
+  --gold-dark: #A8882E;
+  --background: #F4F5F8;
+  --foreground: #1B2B5E;
+}
+
+@theme inline {
+  --color-navy: var(--navy);
+  --color-navy-dark: var(--navy-dark);
+  --color-navy-light: var(--navy-light);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-gold-dark: var(--gold-dark);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", Arial, sans-serif;
+}
+
+/* Gold accent line */
+.gold-line {
+  width: 40px;
+  height: 3px;
+  background: var(--gold);
+  margin: 8px 0;
+}
+
+/* Section label */
+.section-label {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 600;
+}
