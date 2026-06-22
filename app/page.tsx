@@ -5,8 +5,9 @@ import { Employee } from '@/lib/types';
 import AttendanceCalendar from '@/components/AttendanceCalendar';
 import PayStub from '@/components/PayStub';
 import EmployeeEditor from '@/components/EmployeeEditor';
+import ShiftSettingsEditor from '@/components/ShiftSettingsEditor';
 
-type View = 'calendar' | 'paystub' | 'employees';
+type View = 'calendar' | 'paystub' | 'employees' | 'workhours';
 
 export default function Home() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -53,6 +54,7 @@ export default function Home() {
     { key: 'calendar', label: '出勤簿', icon: '📅' },
     { key: 'paystub', label: '給与明細', icon: '📄' },
     { key: 'employees', label: '従業員管理', icon: '👤' },
+    { key: 'workhours', label: '労働時間設定', icon: '⏰' },
   ];
 
   return (
@@ -88,7 +90,7 @@ export default function Home() {
         </div>
 
         {/* Employee list */}
-        {view !== 'employees' && (
+        {view !== 'employees' && view !== 'workhours' && (
           <div className="flex-1 overflow-y-auto px-4 pt-2">
             <div className="text-xs tracking-widest mb-3" style={{ color: '#C9A84C', opacity: 0.8 }}>EMPLOYEE</div>
             <ul className="space-y-0.5">
@@ -126,6 +128,11 @@ export default function Home() {
             <div>
               <div className="section-label">EMPLOYEE</div>
               <h2 className="text-xl font-bold" style={{ color: '#1B2B5E' }}>従業員管理</h2>
+            </div>
+          ) : view === 'workhours' ? (
+            <div>
+              <div className="section-label">SETTINGS</div>
+              <h2 className="text-xl font-bold" style={{ color: '#1B2B5E' }}>労働時間設定</h2>
             </div>
           ) : (
             <>
@@ -184,6 +191,8 @@ export default function Home() {
         <main className="flex-1 overflow-auto p-8">
           {view === 'employees' ? (
             <EmployeeEditor employees={employees} onUpdated={loadEmployees} />
+          ) : view === 'workhours' ? (
+            <ShiftSettingsEditor />
           ) : selectedEmployee ? (
             view === 'calendar' ? (
               <AttendanceCalendar employee={selectedEmployee} year={year} month={month} />

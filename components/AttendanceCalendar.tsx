@@ -97,7 +97,7 @@ export default function AttendanceCalendar({ employee, year, month }: Props) {
         </div>
         <div className="ml-auto">
           <button
-            onClick={() => exportAttendanceExcel(employee.name, year, month, attendance)}
+            onClick={() => { exportAttendanceExcel(employee.name, year, month, attendance); }}
             className="flex items-center gap-2 px-4 py-2 rounded text-sm font-bold transition-opacity hover:opacity-85"
             style={{ background: '#1B2B5E', color: '#C9A84C' }}
           >

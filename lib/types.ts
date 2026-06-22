@@ -28,6 +28,14 @@ export interface MonthlyAllowance {
   persistent: boolean;
 }
 
+export interface ShiftSetting {
+  shift_type: ShiftType;
+  clock_in: string;
+  clock_out: string;
+  rest_time: string;
+  actual_time: string;
+}
+
 export const SHIFT_LABELS: Record<ShiftType, string> = {
   day: '日勤',
   night_full: '夜勤(日+夜)',
