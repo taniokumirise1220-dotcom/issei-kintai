@@ -72,6 +72,7 @@ export default function AttendanceCalendar({ employee, year, month }: Props) {
 
   const days = getDaysInMonth();
   const startDow = new Date(year, month - 1, 1).getDay();
+  const totalRows = Math.ceil((startDow + days.length) / 7);
 
   // Summary counts
   const counts = { day: 0, night_full: 0, night_only: 0, paid_leave: 0 };
@@ -95,9 +96,9 @@ export default function AttendanceCalendar({ employee, year, month }: Props) {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-gray-200">
+        <div className="grid grid-cols-7 border-b border-gray-200 rounded-t-xl overflow-hidden">
           {DAYS_OF_WEEK.map((d, i) => (
             <div
               key={d}
@@ -121,6 +122,8 @@ export default function AttendanceCalendar({ employee, year, month }: Props) {
             const shift = attendance[key];
             const isToday = key === new Date().toISOString().split('T')[0];
             const isActive = activeCell === key;
+            const rowIndex = Math.floor((startDow + date.getDate() - 1) / 7);
+            const isLastRows = rowIndex >= totalRows - 2;
 
             return (
               <div
@@ -144,7 +147,7 @@ export default function AttendanceCalendar({ employee, year, month }: Props) {
 
                 {/* Dropdown */}
                 {isActive && (
-                  <div className="absolute z-20 left-0 top-full bg-white border border-gray-200 rounded-lg shadow-lg w-40 py-1"
+                  <div className={`absolute z-20 left-0 bg-white border border-gray-200 rounded-lg shadow-lg w-40 py-1 ${isLastRows ? 'bottom-full mb-1' : 'top-full mt-1'}`}
                     onClick={e => e.stopPropagation()}>
                     {SHIFT_OPTIONS.map(s => (
                       <button
