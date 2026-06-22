@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Attendance, Employee, SHIFT_COLORS, SHIFT_LABELS, ShiftType } from '@/lib/types';
+import { exportAttendanceExcel } from '@/lib/exportExcel';
 
 interface Props {
   employee: Employee;
@@ -85,7 +86,7 @@ export default function AttendanceCalendar({ employee, year, month }: Props) {
   return (
     <div>
       {/* Summary bar */}
-      <div className="flex gap-4 mb-4 flex-wrap">
+      <div className="flex gap-4 mb-4 flex-wrap items-center">
         {SHIFT_OPTIONS.map(s => (
           <div key={s} className={`px-3 py-1.5 rounded-full text-sm font-medium ${SHIFT_COLORS[s]}`}>
             {SHIFT_LABELS[s]}: {counts[s]}日
@@ -93,6 +94,15 @@ export default function AttendanceCalendar({ employee, year, month }: Props) {
         ))}
         <div className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700">
           合計: {Object.keys(attendance).length}日
+        </div>
+        <div className="ml-auto">
+          <button
+            onClick={() => exportAttendanceExcel(employee.name, year, month, attendance)}
+            className="flex items-center gap-2 px-4 py-2 rounded text-sm font-bold transition-opacity hover:opacity-85"
+            style={{ background: '#1B2B5E', color: '#C9A84C' }}
+          >
+            <span>⬇</span> 出勤簿 Excel出力
+          </button>
         </div>
       </div>
 
