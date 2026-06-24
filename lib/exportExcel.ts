@@ -75,7 +75,7 @@ export async function exportAttendanceExcel(
     ws[gAddr] = {
       t: 'n',
       f: `SUM(F${mondayRow}:F${rowIdx})`,
-      z: 'h:mm',
+      z: '[h]:mm',
     };
   }
 
