@@ -19,9 +19,9 @@ function calcPayroll(employee: Employee, attendance: Attendance[]) {
   for (const a of attendance) {
     const shift = a.shift_type as ShiftType;
     if (shift === 'night_full') {
-      nightAllowance += employee.daily_rate + 5000;
+      nightAllowance += 5000;
     } else if (shift === 'night_only') {
-      nightAllowance += employee.daily_rate + 3000;
+      nightAllowance += 3000;
     }
   }
   return { basicPay, nightAllowance };
