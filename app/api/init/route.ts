@@ -15,6 +15,7 @@ export async function POST() {
   // 既存テーブルへのカラム追加（マイグレーション）
   await query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS family_allowance INTEGER DEFAULT 0`);
   await query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS rent_deduction INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS monthly_salary INTEGER DEFAULT 0`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS attendance (

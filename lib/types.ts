@@ -4,6 +4,7 @@ export interface Employee {
   id: number;
   name: string;
   daily_rate: number;
+  monthly_salary: number;
   family_allowance: number;
   rent_deduction: number;
 }

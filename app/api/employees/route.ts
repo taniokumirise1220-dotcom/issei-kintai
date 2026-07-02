@@ -8,13 +8,13 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { name, daily_rate, family_allowance, rent_deduction } = await req.json();
+  const { name, daily_rate, monthly_salary, family_allowance, rent_deduction } = await req.json();
   if (!name || !daily_rate) {
     return NextResponse.json({ error: 'Missing fields' }, { status: 400 });
   }
   const rows = await query<Employee>(
-    `INSERT INTO employees (name, daily_rate, family_allowance, rent_deduction) VALUES ($1, $2, $3, $4) RETURNING *`,
-    [name, daily_rate, family_allowance ?? 0, rent_deduction ?? 0]
+    `INSERT INTO employees (name, daily_rate, monthly_salary, family_allowance, rent_deduction) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [name, daily_rate, monthly_salary ?? 0, family_allowance ?? 0, rent_deduction ?? 0]
   );
   return NextResponse.json(rows[0]);
 }
