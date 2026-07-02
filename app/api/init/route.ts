@@ -18,6 +18,17 @@ export async function POST() {
   await query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS monthly_salary INTEGER DEFAULT 0`);
 
   await query(`
+    CREATE TABLE IF NOT EXISTS payroll_entries (
+      id SERIAL PRIMARY KEY,
+      employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+      year INTEGER NOT NULL,
+      month INTEGER NOT NULL,
+      advance1 INTEGER DEFAULT 0,
+      UNIQUE(employee_id, year, month)
+    )
+  `);
+
+  await query(`
     CREATE TABLE IF NOT EXISTS attendance (
       id SERIAL PRIMARY KEY,
       employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,

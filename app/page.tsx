@@ -6,8 +6,9 @@ import AttendanceCalendar from '@/components/AttendanceCalendar';
 import PayStub from '@/components/PayStub';
 import EmployeeEditor from '@/components/EmployeeEditor';
 import ShiftSettingsEditor from '@/components/ShiftSettingsEditor';
+import PayrollCalculation from '@/components/PayrollCalculation';
 
-type View = 'calendar' | 'paystub' | 'employees' | 'workhours';
+type View = 'calendar' | 'paystub' | 'employees' | 'workhours' | 'payroll';
 
 export default function Home() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -54,6 +55,7 @@ export default function Home() {
     { key: 'calendar', label: '出勤簿', icon: '📅' },
     { key: 'paystub', label: '給与明細', icon: '📄' },
     { key: 'employees', label: '従業員管理', icon: '👤' },
+    { key: 'payroll',   label: '給与計算',   icon: '💴' },
     { key: 'workhours', label: '労働時間設定', icon: '⏰' },
   ];
 
@@ -134,6 +136,23 @@ export default function Home() {
               <div className="section-label">SETTINGS</div>
               <h2 className="text-xl font-bold" style={{ color: '#1B2B5E' }}>労働時間設定</h2>
             </div>
+          ) : view === 'payroll' ? (
+            <>
+              <div className="flex items-center gap-4">
+                <button onClick={prevMonth} className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-gray-100" style={{ color: '#1B2B5E' }}>◀</button>
+                <div className="text-center">
+                  <div className="section-label">PAYROLL</div>
+                  <span className="text-xl font-bold" style={{ color: '#1B2B5E' }}>{year}年{month}月</span>
+                </div>
+                <button onClick={nextMonth} className="w-8 h-8 flex items-center justify-center rounded-full transition-colors hover:bg-gray-100" style={{ color: '#1B2B5E' }}>▶</button>
+              </div>
+              {selectedEmployee && (
+                <div className="text-right">
+                  <div className="section-label text-right">SELECTED</div>
+                  <span className="text-sm font-semibold" style={{ color: '#1B2B5E' }}>{selectedEmployee.name}</span>
+                </div>
+              )}
+            </>
           ) : (
             <>
               <div className="flex items-center gap-4">
@@ -193,6 +212,10 @@ export default function Home() {
             <EmployeeEditor employees={employees} onUpdated={loadEmployees} />
           ) : view === 'workhours' ? (
             <ShiftSettingsEditor />
+          ) : view === 'payroll' ? (
+            selectedEmployee
+              ? <PayrollCalculation employee={selectedEmployee} year={year} month={month} />
+              : <div className="text-center mt-20" style={{ color: '#1B2B5E', opacity: 0.4 }}>左から従業員を選択してください</div>
           ) : selectedEmployee ? (
             view === 'calendar' ? (
               <AttendanceCalendar employee={selectedEmployee} year={year} month={month} />
