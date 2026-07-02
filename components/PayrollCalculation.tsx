@@ -13,19 +13,15 @@ const NAVY = '#1B2B5E';
 const GOLD = '#C9A84C';
 
 function calcPayroll(employee: Employee, attendance: Attendance[]) {
-  let basicPay = 0;
+  const basicPay = employee.monthly_salary ?? 0;
   let nightAllowance = 0;
 
   for (const a of attendance) {
     const shift = a.shift_type as ShiftType;
     if (shift === 'night_full') {
-      basicPay += employee.daily_rate;
       nightAllowance += employee.daily_rate + 5000;
     } else if (shift === 'night_only') {
       nightAllowance += employee.daily_rate + 3000;
-    } else {
-      // day / paid_leave
-      basicPay += employee.daily_rate;
     }
   }
   return { basicPay, nightAllowance };
@@ -70,7 +66,7 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
   const total = basicPay + nightAllowance - advance1;
 
   const rows = [
-    { label: '基本給',   value: basicPay,       color: NAVY,      note: `${attendance.filter(a => a.shift_type !== 'night_only').length}日分` },
+    { label: '基本給',   value: basicPay,       color: NAVY,      note: '月給' },
     { label: '夜間手当', value: nightAllowance,  color: '#6D28D9', note: `夜勤${attendance.filter(a => a.shift_type === 'night_full' || a.shift_type === 'night_only').length}回分` },
   ];
 
