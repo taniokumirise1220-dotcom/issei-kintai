@@ -80,7 +80,7 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
   };
 
   const { basicPay, nightAllowance, advance1 } = calcPayroll(employee, attendance);
-  const total = basicPay + nightAllowance + advance1 - advance2;
+  const total = basicPay + nightAllowance + advance1 + advance2;
 
   const nightCount = attendance.filter(a =>
     a.shift_type === 'night_full' || a.shift_type === 'night_only'
@@ -151,14 +151,10 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
           </div>
         </div>
 
-        {/* 控除項目 */}
-        <div className="px-6 py-3 border-b text-xs font-bold tracking-wider"
-          style={{ background: NAVY, color: GOLD }}>
-          控除項目
-        </div>
+        {/* 前借② — 支給項目 */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <div>
-            <div className="text-sm font-semibold" style={{ color: NAVY }}>前借金②</div>
+            <div className="text-sm font-semibold" style={{ color: NAVY }}>前借②</div>
             <div className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>手入力で保存されます</div>
           </div>
           <div className="flex items-center gap-3">
