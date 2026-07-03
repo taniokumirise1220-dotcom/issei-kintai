@@ -11,18 +11,18 @@ export async function GET(req: NextRequest) {
     `SELECT * FROM payroll_entries WHERE employee_id=$1 AND year=$2 AND month=$3`,
     [employee_id, year, month]
   );
-  return NextResponse.json(rows[0] ?? { advance1: 0 });
+  return NextResponse.json(rows[0] ?? { advance1: 0, advance2: 0 });
 }
 
 export async function POST(req: NextRequest) {
-  const { employee_id, year, month, advance1 } = await req.json();
+  const { employee_id, year, month, advance1, advance2 } = await req.json();
   const rows = await query(
-    `INSERT INTO payroll_entries (employee_id, year, month, advance1)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO payroll_entries (employee_id, year, month, advance1, advance2)
+     VALUES ($1, $2, $3, $4, $5)
      ON CONFLICT (employee_id, year, month)
-     DO UPDATE SET advance1 = EXCLUDED.advance1
+     DO UPDATE SET advance1 = EXCLUDED.advance1, advance2 = EXCLUDED.advance2
      RETURNING *`,
-    [employee_id, year, month, advance1 ?? 0]
+    [employee_id, year, month, advance1 ?? 0, advance2 ?? 0]
   );
   return NextResponse.json(rows[0]);
 }

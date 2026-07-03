@@ -24,9 +24,11 @@ export async function POST() {
       year INTEGER NOT NULL,
       month INTEGER NOT NULL,
       advance1 INTEGER DEFAULT 0,
+      advance2 INTEGER DEFAULT 0,
       UNIQUE(employee_id, year, month)
     )
   `);
+  await query(`ALTER TABLE payroll_entries ADD COLUMN IF NOT EXISTS advance2 INTEGER DEFAULT 0`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS attendance (

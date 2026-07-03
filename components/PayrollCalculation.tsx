@@ -46,17 +46,41 @@ function calcPayroll(employee: Employee, attendance: Attendance[]) {
 
 export default function PayrollCalculation({ employee, year, month }: Props) {
   const [attendance, setAttendance] = useState<Attendance[]>([]);
+  const [advance2, setAdvance2]     = useState(0);
+  const [inputVal, setInputVal]     = useState('0');
+  const [saving, setSaving]         = useState(false);
+  const [toast, setToast]           = useState<string | null>(null);
+
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/attendance?employee_id=${employee.id}&year=${year}&month=${month}`);
-    const att: Attendance[] = await res.json();
+    const [attRes, payRes] = await Promise.all([
+      fetch(`/api/attendance?employee_id=${employee.id}&year=${year}&month=${month}`),
+      fetch(`/api/payroll?employee_id=${employee.id}&year=${year}&month=${month}`),
+    ]);
+    const att: Attendance[] = await attRes.json();
+    const pay = await payRes.json();
     setAttendance(att);
+    setAdvance2(pay.advance2 ?? 0);
+    setInputVal(String(pay.advance2 ?? 0));
   }, [employee.id, year, month]);
 
   useEffect(() => { load(); }, [load]);
 
+  const save = async () => {
+    setSaving(true);
+    await fetch('/api/payroll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_id: employee.id, year, month, advance2: parseInt(inputVal) || 0 }),
+    });
+    setAdvance2(parseInt(inputVal) || 0);
+    setSaving(false);
+    showToast('保存しました');
+  };
+
   const { basicPay, nightAllowance, advance1 } = calcPayroll(employee, attendance);
-  const total = basicPay + nightAllowance + advance1;
+  const total = basicPay + nightAllowance + advance1 - advance2;
 
   const nightCount = attendance.filter(a =>
     a.shift_type === 'night_full' || a.shift_type === 'night_only'
@@ -69,6 +93,13 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
 
   return (
     <div className="max-w-2xl mx-auto">
+      {toast && (
+        <div className="fixed top-6 right-6 z-50 px-5 py-3 rounded shadow-lg text-sm font-medium text-white"
+          style={{ background: NAVY, borderLeft: `4px solid ${GOLD}` }}>
+          {toast}
+        </div>
+      )}
+
       {/* Header */}
       <div className="rounded-xl overflow-hidden shadow-sm mb-6" style={{ background: NAVY }}>
         <div className="px-8 py-6">
@@ -117,6 +148,38 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
               {advance1.toLocaleString()}
             </span>
             <span className="text-sm ml-1" style={{ color: '#6b7280' }}>円</span>
+          </div>
+        </div>
+
+        {/* 控除項目 */}
+        <div className="px-6 py-3 border-b text-xs font-bold tracking-wider"
+          style={{ background: NAVY, color: GOLD }}>
+          控除項目
+        </div>
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
+          <div>
+            <div className="text-sm font-semibold" style={{ color: NAVY }}>前借金②</div>
+            <div className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>手入力で保存されます</div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center border rounded overflow-hidden" style={{ borderColor: GOLD }}>
+              <input
+                type="number"
+                min={0}
+                value={inputVal}
+                onChange={e => setInputVal(e.target.value)}
+                className="px-3 py-2 text-sm text-right focus:outline-none w-32"
+              />
+              <span className="px-2 text-xs" style={{ background: '#f9fafb', borderLeft: '1px solid #e5e7eb', color: '#6b7280' }}>円</span>
+            </div>
+            <button
+              onClick={save}
+              disabled={saving}
+              className="px-4 py-2 rounded text-sm font-bold transition-opacity hover:opacity-85"
+              style={{ background: NAVY, color: GOLD, opacity: saving ? 0.6 : 1 }}
+            >
+              {saving ? '保存中' : '保存'}
+            </button>
           </div>
         </div>
 
