@@ -182,7 +182,7 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
         {/* 合計 */}
         <div className="flex items-center justify-between px-6 py-6"
           style={{ background: '#FBF7EE' }}>
-          <div className="text-base font-bold" style={{ color: NAVY }}>差引支給額</div>
+          <div className="text-base font-bold" style={{ color: NAVY }}>総支給額</div>
           <div>
             <span className="text-2xl font-bold" style={{ color: total >= 0 ? NAVY : '#ef4444' }}>
               {total.toLocaleString()}
