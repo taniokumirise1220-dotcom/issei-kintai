@@ -13,13 +13,10 @@ const NAVY = '#1B2B5E';
 const GOLD = '#C9A84C';
 
 function calcPayroll(employee: Employee, attendance: Attendance[]) {
-  // 給与計算ページの基本給・夜間手当
-  const basicPay      = employee.monthly_salary ?? 0;
-  let payrollNight    = 0;   // 給与計算の夜間手当（5000/3000 固定）
-
-  // 給与明細ベースの計算（日当ベース）
-  let stubBasicPay    = 0;
-  let stubNightAllow  = 0;
+  const basicPay   = employee.monthly_salary ?? 0;
+  let payrollNight = 0;
+  let stubBasicPay = 0;
+  let stubNightAllow = 0;
 
   for (const a of attendance) {
     const shift = a.shift_type as ShiftType;
@@ -31,12 +28,10 @@ function calcPayroll(employee: Employee, attendance: Attendance[]) {
       stubNightAllow += employee.daily_rate + 3000;
       payrollNight   += 3000;
     } else {
-      // day / paid_leave
-      stubBasicPay   += employee.daily_rate;
+      stubBasicPay += employee.daily_rate;
     }
   }
 
-  // 前借① = (給与明細基本給 - 月給) + (給与明細夜間手当 - 給与計算夜間手当) + 家族手当
   const advance1 = (stubBasicPay - basicPay)
                  + (stubNightAllow - payrollNight)
                  + (employee.family_allowance ?? 0);
@@ -45,11 +40,16 @@ function calcPayroll(employee: Employee, attendance: Attendance[]) {
 }
 
 export default function PayrollCalculation({ employee, year, month }: Props) {
-  const [attendance, setAttendance] = useState<Attendance[]>([]);
-  const [advance2, setAdvance2]     = useState(0);
-  const [inputVal, setInputVal]     = useState('0');
-  const [saving, setSaving]         = useState(false);
-  const [toast, setToast]           = useState<string | null>(null);
+  const [attendance, setAttendance]   = useState<Attendance[]>([]);
+  const [advance2, setAdvance2]       = useState(0);
+  const [inputVal, setInputVal]       = useState('0');
+  const [confirmed, setConfirmed]     = useState(false);
+  const [snapBasic, setSnapBasic]     = useState<number | null>(null);
+  const [snapNight, setSnapNight]     = useState<number | null>(null);
+  const [snapAdv1, setSnapAdv1]       = useState<number | null>(null);
+  const [snapTotal, setSnapTotal]     = useState<number | null>(null);
+  const [saving, setSaving]           = useState(false);
+  const [toast, setToast]             = useState<string | null>(null);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
 
@@ -63,6 +63,11 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
     setAttendance(att);
     setAdvance2(pay.advance2 ?? 0);
     setInputVal(String(pay.advance2 ?? 0));
+    setConfirmed(pay.confirmed ?? false);
+    setSnapBasic(pay.snap_basic_pay ?? null);
+    setSnapNight(pay.snap_night_allowance ?? null);
+    setSnapAdv1(pay.snap_advance1 ?? null);
+    setSnapTotal(pay.snap_total ?? null);
   }, [employee.id, year, month]);
 
   useEffect(() => { load(); }, [load]);
@@ -79,16 +84,61 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
     showToast('保存しました');
   };
 
+  const handleConfirm = async () => {
+    const adv2 = parseInt(inputVal) || 0;
+    const total = displayBasic + displayNight + displayAdv1 + adv2;
+    setSaving(true);
+    await fetch('/api/payroll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        employee_id: employee.id, year, month,
+        advance2: adv2,
+        confirm: true,
+        snap_basic_pay: displayBasic,
+        snap_night_allowance: displayNight,
+        snap_advance1: displayAdv1,
+        snap_total: total,
+      }),
+    });
+    setAdvance2(adv2);
+    setSnapBasic(displayBasic);
+    setSnapNight(displayNight);
+    setSnapAdv1(displayAdv1);
+    setSnapTotal(total);
+    setConfirmed(true);
+    setSaving(false);
+    showToast('確定しました');
+  };
+
+  const handleUnconfirm = async () => {
+    setSaving(true);
+    await fetch('/api/payroll', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee_id: employee.id, year, month, unconfirm: true }),
+    });
+    setConfirmed(false);
+    setSaving(false);
+    showToast('確定を解除しました');
+  };
+
   const { basicPay, nightAllowance, advance1 } = calcPayroll(employee, attendance);
-  const total = basicPay + nightAllowance + advance1 + advance2;
+
+  // 確定済みの場合はスナップショット値を表示
+  const displayBasic = confirmed && snapBasic !== null ? snapBasic : basicPay;
+  const displayNight = confirmed && snapNight !== null ? snapNight : nightAllowance;
+  const displayAdv1  = confirmed && snapAdv1  !== null ? snapAdv1  : advance1;
+  const displayAdv2  = advance2;
+  const displayTotal = confirmed && snapTotal !== null ? snapTotal : displayBasic + displayNight + displayAdv1 + displayAdv2;
 
   const nightCount = attendance.filter(a =>
     a.shift_type === 'night_full' || a.shift_type === 'night_only'
   ).length;
 
-  const rows = [
-    { label: '基本給',   value: basicPay,      color: NAVY,      note: '月給' },
-    { label: '夜間手当', value: nightAllowance, color: '#6D28D9', note: `夜勤${nightCount}回分` },
+  const payRows = [
+    { label: '基本給',   value: displayBasic, color: NAVY,      note: '月給' },
+    { label: '夜間手当', value: displayNight, color: '#6D28D9', note: confirmed ? '確定済み' : `夜勤${nightCount}回分` },
   ];
 
   return (
@@ -102,13 +152,21 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
 
       {/* Header */}
       <div className="rounded-xl overflow-hidden shadow-sm mb-6" style={{ background: NAVY }}>
-        <div className="px-8 py-6">
-          <div className="section-label mb-1">PAYROLL CALCULATION</div>
-          <h2 className="text-2xl font-bold text-white">給与計算</h2>
-          <div className="mt-2" style={{ width: 40, height: 2, background: GOLD }} />
-          <p className="mt-3 text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            {employee.name}　{year}年{month}月
-          </p>
+        <div className="px-8 py-6 flex items-start justify-between">
+          <div>
+            <div className="section-label mb-1">PAYROLL CALCULATION</div>
+            <h2 className="text-2xl font-bold text-white">給与計算</h2>
+            <div className="mt-2" style={{ width: 40, height: 2, background: GOLD }} />
+            <p className="mt-3 text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
+              {employee.name}　{year}年{month}月
+            </p>
+          </div>
+          {confirmed && (
+            <div className="mt-2 px-3 py-1 rounded-full text-xs font-bold"
+              style={{ background: GOLD, color: NAVY }}>
+              確定済み
+            </div>
+          )}
         </div>
       </div>
 
@@ -120,7 +178,7 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
           支給項目
         </div>
 
-        {rows.map(row => (
+        {payRows.map(row => (
           <div key={row.label} className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
             <div>
               <div className="text-sm font-semibold" style={{ color: NAVY }}>{row.label}</div>
@@ -135,65 +193,99 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
           </div>
         ))}
 
-        {/* 前借① — 支給項目 */}
+        {/* 前借① */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <div>
             <div className="text-sm font-semibold" style={{ color: NAVY }}>前借①</div>
             <div className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
-              (給与明細基本給−月給) ＋ (給与明細夜間手当−夜間手当) ＋ 家族手当
+              {confirmed ? '確定済み' : '(給与明細基本給−月給) ＋ (給与明細夜間手当−夜間手当) ＋ 家族手当'}
             </div>
           </div>
           <div className="text-right">
             <span className="text-xl font-bold" style={{ color: '#16A34A' }}>
-              {advance1.toLocaleString()}
+              {displayAdv1.toLocaleString()}
             </span>
             <span className="text-sm ml-1" style={{ color: '#6b7280' }}>円</span>
           </div>
         </div>
 
-        {/* 前借② — 支給項目 */}
+        {/* 前借② */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <div>
             <div className="text-sm font-semibold" style={{ color: NAVY }}>前借②</div>
-            <div className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>手入力で保存されます</div>
+            <div className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>手入力</div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center border rounded overflow-hidden" style={{ borderColor: GOLD }}>
-              <input
-                type="number"
-                min={0}
-                value={inputVal}
-                onChange={e => setInputVal(e.target.value)}
-                className="px-3 py-2 text-sm text-right focus:outline-none w-32"
-              />
-              <span className="px-2 text-xs" style={{ background: '#f9fafb', borderLeft: '1px solid #e5e7eb', color: '#6b7280' }}>円</span>
+          {confirmed ? (
+            <div className="text-right">
+              <span className="text-xl font-bold" style={{ color: '#16A34A' }}>
+                {displayAdv2.toLocaleString()}
+              </span>
+              <span className="text-sm ml-1" style={{ color: '#6b7280' }}>円</span>
             </div>
-            <button
-              onClick={save}
-              disabled={saving}
-              className="px-4 py-2 rounded text-sm font-bold transition-opacity hover:opacity-85"
-              style={{ background: NAVY, color: GOLD, opacity: saving ? 0.6 : 1 }}
-            >
-              {saving ? '保存中' : '保存'}
-            </button>
-          </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <div className="flex items-center border rounded overflow-hidden" style={{ borderColor: GOLD }}>
+                <input
+                  type="number"
+                  min={0}
+                  value={inputVal}
+                  onChange={e => setInputVal(e.target.value)}
+                  className="px-3 py-2 text-sm text-right focus:outline-none w-32"
+                />
+                <span className="px-2 text-xs" style={{ background: '#f9fafb', borderLeft: '1px solid #e5e7eb', color: '#6b7280' }}>円</span>
+              </div>
+              <button
+                onClick={save}
+                disabled={saving}
+                className="px-4 py-2 rounded text-sm font-bold transition-opacity hover:opacity-85"
+                style={{ background: NAVY, color: GOLD, opacity: saving ? 0.6 : 1 }}
+              >
+                {saving ? '保存中' : '保存'}
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* 合計 */}
+        {/* 総支給額 */}
         <div className="flex items-center justify-between px-6 py-6"
           style={{ background: '#FBF7EE' }}>
           <div className="text-base font-bold" style={{ color: NAVY }}>総支給額</div>
           <div>
-            <span className="text-2xl font-bold" style={{ color: total >= 0 ? NAVY : '#ef4444' }}>
-              {total.toLocaleString()}
+            <span className="text-2xl font-bold" style={{ color: NAVY }}>
+              {displayTotal.toLocaleString()}
             </span>
             <span className="text-sm ml-1" style={{ color: '#6b7280' }}>円</span>
           </div>
         </div>
       </div>
 
-      <p className="text-xs text-center" style={{ color: '#9ca3af' }}>
-        すべての項目は出勤簿・従業員管理のデータから自動計算されます
+      {/* 確定・解除ボタン */}
+      <div className="flex justify-end gap-3">
+        {confirmed ? (
+          <button
+            onClick={handleUnconfirm}
+            disabled={saving}
+            className="px-6 py-2.5 rounded text-sm font-bold border transition-opacity hover:opacity-80"
+            style={{ borderColor: NAVY, color: NAVY, background: 'white', opacity: saving ? 0.6 : 1 }}
+          >
+            確定を解除して修正
+          </button>
+        ) : (
+          <button
+            onClick={handleConfirm}
+            disabled={saving}
+            className="px-6 py-2.5 rounded text-sm font-bold transition-opacity hover:opacity-85"
+            style={{ background: GOLD, color: NAVY, opacity: saving ? 0.6 : 1 }}
+          >
+            {saving ? '処理中...' : 'この月を確定する'}
+          </button>
+        )}
+      </div>
+
+      <p className="text-xs text-center mt-4" style={{ color: '#9ca3af' }}>
+        {confirmed
+          ? '確定済みです。「確定を解除して修正」から変更できます。'
+          : 'すべての項目は出勤簿・従業員管理のデータから自動計算されます'}
       </p>
     </div>
   );

@@ -29,6 +29,11 @@ export async function POST() {
     )
   `);
   await query(`ALTER TABLE payroll_entries ADD COLUMN IF NOT EXISTS advance2 INTEGER DEFAULT 0`);
+  await query(`ALTER TABLE payroll_entries ADD COLUMN IF NOT EXISTS confirmed BOOLEAN DEFAULT FALSE`);
+  await query(`ALTER TABLE payroll_entries ADD COLUMN IF NOT EXISTS snap_basic_pay INTEGER`);
+  await query(`ALTER TABLE payroll_entries ADD COLUMN IF NOT EXISTS snap_night_allowance INTEGER`);
+  await query(`ALTER TABLE payroll_entries ADD COLUMN IF NOT EXISTS snap_advance1 INTEGER`);
+  await query(`ALTER TABLE payroll_entries ADD COLUMN IF NOT EXISTS snap_total INTEGER`);
 
   await query(`
     CREATE TABLE IF NOT EXISTS attendance (
