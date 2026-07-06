@@ -7,6 +7,7 @@ import PayStub from '@/components/PayStub';
 import EmployeeEditor from '@/components/EmployeeEditor';
 import ShiftSettingsEditor from '@/components/ShiftSettingsEditor';
 import PayrollCalculation from '@/components/PayrollCalculation';
+import { exportAllAttendanceExcel } from '@/lib/exportExcel';
 
 type View = 'calendar' | 'paystub' | 'employees' | 'workhours' | 'payroll';
 
@@ -17,6 +18,13 @@ export default function Home() {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [view, setView] = useState<View>('calendar');
   const [initialized, setInitialized] = useState(false);
+  const [exportingAll, setExportingAll] = useState(false);
+
+  const handleExportAll = async () => {
+    setExportingAll(true);
+    await exportAllAttendanceExcel(employees, year, month);
+    setExportingAll(false);
+  };
 
   const loadEmployees = () =>
     fetch('/api/employees').then(r => r.json()).then((data: Employee[]) => {
@@ -186,20 +194,30 @@ export default function Home() {
                     </span>
                   </div>
                 )}
-                <div className="flex rounded overflow-hidden border" style={{ borderColor: '#1B2B5E' }}>
-                  {navItems.slice(0, 2).map(item => (
-                    <button
-                      key={item.key}
-                      onClick={() => setView(item.key as View)}
-                      className="px-5 py-2 text-sm font-medium transition-colors"
-                      style={view === item.key
-                        ? { background: '#1B2B5E', color: '#C9A84C' }
-                        : { background: 'white', color: '#1B2B5E' }
-                      }
-                    >
-                      {item.label}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleExportAll}
+                    disabled={exportingAll}
+                    className="px-4 py-2 rounded text-sm font-bold transition-opacity hover:opacity-85"
+                    style={{ background: '#C9A84C', color: '#1B2B5E', opacity: exportingAll ? 0.6 : 1 }}
+                  >
+                    {exportingAll ? '出力中...' : '⬇ 全員分Excel出力'}
+                  </button>
+                  <div className="flex rounded overflow-hidden border" style={{ borderColor: '#1B2B5E' }}>
+                    {navItems.slice(0, 2).map(item => (
+                      <button
+                        key={item.key}
+                        onClick={() => setView(item.key as View)}
+                        className="px-5 py-2 text-sm font-medium transition-colors"
+                        style={view === item.key
+                          ? { background: '#1B2B5E', color: '#C9A84C' }
+                          : { background: 'white', color: '#1B2B5E' }
+                        }
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </>
