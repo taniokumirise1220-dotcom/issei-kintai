@@ -3,13 +3,38 @@ import { ShiftSetting, ShiftType } from './types';
 
 const DOW_JA = ['日', '月', '火', '水', '木', '金', '土'];
 
-function parseTimeToExcelValue(timeStr: string): number | null {
+function parseMinutes(timeStr: string): number | null {
   if (!timeStr) return null;
-  // 全角コロンも許容
   const normalized = timeStr.replace('：', ':');
   const m = normalized.match(/^(\d+):(\d{2})$/);
   if (!m) return null;
-  return (parseInt(m[1]) * 60 + parseInt(m[2])) / 1440;
+  return parseInt(m[1]) * 60 + parseInt(m[2]);
+}
+
+function parseTimeToExcelValue(timeStr: string): number | null {
+  const min = parseMinutes(timeStr);
+  return min !== null ? min / 1440 : null;
+}
+
+// 22:00〜翌5:00に重複する時間をExcel時刻値で返す
+function calcNightOvertimeExcelValue(clockIn: string, clockOut: string): number | null {
+  const inMin  = parseMinutes(clockIn);
+  const outMin = parseMinutes(clockOut);
+  if (inMin === null || outMin === null) return null;
+
+  // 退勤が出勤以下なら日をまたいでいる
+  const adjustedOut = outMin <= inMin ? outMin + 1440 : outMin;
+
+  // 深夜帯: 22:00(1320分) 〜 翌5:00(1740分)
+  const nightStart = 22 * 60; // 1320
+  const nightEnd   = 29 * 60; // 1740 (翌5:00)
+
+  const overlapStart = Math.max(inMin, nightStart);
+  const overlapEnd   = Math.min(adjustedOut, nightEnd);
+
+  if (overlapEnd <= overlapStart) return null;
+
+  return (overlapEnd - overlapStart) / 1440;
 }
 
 export async function exportAttendanceExcel(
@@ -25,16 +50,18 @@ export async function exportAttendanceExcel(
 
   const daysInMonth = new Date(year, month, 0).getDate();
 
-  // 実働時間(Excel時刻値)を日付キーで事前計算
+  // 実働時間・深夜残業時間を事前計算
   const actualTimeValues: Record<number, number | null> = {};
+  const nightOvertimeValues: Record<number, number | null> = {};
   for (let d = 1; d <= daysInMonth; d++) {
     const key = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const shift = attendance[key];
     const setting = shift ? settingsMap[shift] : null;
-    actualTimeValues[d] = setting ? parseTimeToExcelValue(setting.actual_time) : null;
+    actualTimeValues[d]    = setting ? parseTimeToExcelValue(setting.actual_time) : null;
+    nightOvertimeValues[d] = setting ? calcNightOvertimeExcelValue(setting.clock_in, setting.clock_out) : null;
   }
 
-  const headerRow = ['日付', '曜日', '出勤', '退社', '休憩時間', '実働時間', '週計'];
+  const headerRow = ['日付', '曜日', '出勤', '退社', '休憩時間', '実働時間', '週計', '深夜残業'];
   const aoa: (string | number | null)[][] = [headerRow];
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -42,18 +69,17 @@ export async function exportAttendanceExcel(
     const shift = attendance[key];
     const date = new Date(year, month - 1, d);
     const dow = date.getDay();
-    const dateLabel = `${year}/${month}/${d}`;
-    const dowLabel = DOW_JA[dow];
     const setting = shift ? settingsMap[shift] : null;
 
     aoa.push([
-      dateLabel,
-      dowLabel,
-      setting?.clock_in ?? '',
+      `${year}/${month}/${d}`,
+      DOW_JA[dow],
+      setting?.clock_in  ?? '',
       setting?.clock_out ?? '',
       setting?.rest_time ?? '',
-      actualTimeValues[d],  // F列: 数値型時刻値
-      null,                 // G列: 後で設定
+      actualTimeValues[d],    // F列
+      null,                   // G列: 後で設定
+      nightOvertimeValues[d], // H列
     ]);
   }
 
@@ -62,7 +88,7 @@ export async function exportAttendanceExcel(
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(year, month - 1, d);
     const dow = date.getDay();
-    const rowIdx = d + 1; // Excelの行番号(1始まり)
+    const rowIdx = d + 1;
 
     // F列: h:mm 書式
     const fAddr = XLSX.utils.encode_cell({ r: d, c: 5 });
@@ -71,31 +97,36 @@ export async function exportAttendanceExcel(
       ws[fAddr].t = 'n';
     }
 
-    // 週計: 月曜起算の週頭を求める
-    const daysSinceMonday = (dow + 6) % 7; // Mon=0 … Sun=6
+    // H列: h:mm 書式
+    const hAddr = XLSX.utils.encode_cell({ r: d, c: 7 });
+    if (ws[hAddr] && ws[hAddr].v != null) {
+      ws[hAddr].z = 'h:mm';
+      ws[hAddr].t = 'n';
+    }
+
+    // 週計(G列): 月曜起算
+    const daysSinceMonday = (dow + 6) % 7;
     const mondayD = Math.max(1, d - daysSinceMonday);
     const mondayRow = mondayD + 1;
 
-    // 週計のキャッシュ値を JS で計算
     let weeklySum = 0;
     for (let wd = mondayD; wd <= d; wd++) {
       const v = actualTimeValues[wd];
       if (v != null) weeklySum += v;
     }
 
-    // G列: 数式 + キャッシュ値 + [h]:mm 書式
     const gAddr = XLSX.utils.encode_cell({ r: d, c: 6 });
     ws[gAddr] = {
       t: 'n',
-      v: weeklySum,                            // キャッシュ値（書式適用に必須）
-      f: `SUM(F${mondayRow}:F${rowIdx})`,      // Excelで再計算可能な数式
-      z: '[h]:mm',                             // 24時間超対応フォーマット
+      v: weeklySum,
+      f: `SUM(F${mondayRow}:F${rowIdx})`,
+      z: '[h]:mm',
     };
   }
 
-  // !ref をG列まで拡張
+  // !ref をH列まで拡張
   const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1');
-  range.e.c = Math.max(range.e.c, 6);
+  range.e.c = Math.max(range.e.c, 7);
   ws['!ref'] = XLSX.utils.encode_range(range);
 
   ws['!cols'] = [
@@ -106,6 +137,7 @@ export async function exportAttendanceExcel(
     { wch: 10 }, // E: 休憩時間
     { wch: 10 }, // F: 実働時間
     { wch: 10 }, // G: 週計
+    { wch: 12 }, // H: 深夜残業
   ];
 
   const wb = XLSX.utils.book_new();
