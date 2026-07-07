@@ -128,7 +128,7 @@ function addAttendanceSheet(
     if (shift === 'day')        { workDays++; dayCount++; }
     if (shift === 'night_full') { workDays++; nightFullCount++; }
     if (shift === 'night_only') { workDays++; nightOnlyCount++; }
-    if (shift === 'paid_leave') { workDays++; paidDays++; }
+    if (shift === 'paid_leave') { paidDays++; }
 
     const row = ws.addRow([
       `${year}/${month}/${d}`,
