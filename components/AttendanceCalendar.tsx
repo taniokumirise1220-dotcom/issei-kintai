@@ -19,7 +19,7 @@ export default function AttendanceCalendar({ employee, year, month }: Props) {
   const [activeCell, setActiveCell] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/shift-settings').then(r => r.json()).then(setShiftSettings);
+    fetch('/api/shift-settings', { cache: 'no-store' }).then(r => r.json()).then(setShiftSettings);
   }, []);
 
   const fetchAttendance = useCallback(async () => {
