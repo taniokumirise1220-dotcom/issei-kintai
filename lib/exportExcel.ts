@@ -152,24 +152,36 @@ function addAttendanceSheet(
     row.alignment = { horizontal: 'center', vertical: 'middle' };
   }
 
-  // 合計行
+  const applyTotalStyle = (row: ExcelJS.Row) => {
+    row.eachCell({ includeEmpty: true }, cell => {
+      cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: TOT_BG } };
+      cell.font      = { bold: true, color: { argb: NAVY } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+  };
+
+  // 合計行（実働時間・深夜残業のみ）
   const totalRow = ws.addRow([
-    '合計',
-    `出勤${dayCount + nightFullCount + nightOnlyCount}日　有給${paidDays}日`,
-    `日勤:${dayCount}回`,
-    `夜勤(日+夜):${nightFullCount}回`,
-    `夜勤(夜のみ):${nightOnlyCount}回`,
+    '合計', '', '', '', '',
     totalActual > 0 ? toExcelTime(totalActual) : '',
     '',
     totalNight  > 0 ? toExcelTime(totalNight)  : '',
   ]);
   if (totalActual > 0) { totalRow.getCell(6).numFmt = '[h]:mm'; }
   if (totalNight  > 0) { totalRow.getCell(8).numFmt = '[h]:mm'; }
-  totalRow.eachCell({ includeEmpty: true }, cell => {
-    cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: TOT_BG } };
-    cell.font      = { bold: true, color: { argb: NAVY } };
-    cell.alignment = { horizontal: 'center', vertical: 'middle' };
-  });
+  applyTotalStyle(totalRow);
+
+  // 明細行（1行ずつ）
+  const detailRows = [
+    [`出勤　${dayCount + nightFullCount + nightOnlyCount}日`],
+    [`有給　${paidDays}日`],
+    [`夜勤(日+夜)　${nightFullCount}回`],
+    [`夜勤(夜のみ)　${nightOnlyCount}回`],
+  ];
+  for (const data of detailRows) {
+    const r = ws.addRow([data[0], '', '', '', '', '', '', '']);
+    applyTotalStyle(r);
+  }
 }
 
 async function saveWorkbook(wb: ExcelJS.Workbook, filename: string) {
