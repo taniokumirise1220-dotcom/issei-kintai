@@ -47,7 +47,7 @@ async function fetchPrevActualMin(
   for (const a of prevAtt) {
     const s   = settingsMap[a.shift_type];
     const min = s ? parseMinutes(s.actual_time) : null;
-    if (min !== null) result[a.date] = min;
+    if (min !== null) result[a.date.substring(0, 10)] = min;
   }
   return result;
 }
@@ -210,7 +210,7 @@ export async function exportAllAttendanceExcel(
     const attRes = await fetch(`/api/attendance?employee_id=${emp.id}&year=${year}&month=${month}`);
     const attArr: { date: string; shift_type: ShiftType }[] = await attRes.json();
     const attendance: Record<string, ShiftType> = {};
-    for (const a of attArr) attendance[a.date] = a.shift_type;
+    for (const a of attArr) attendance[a.date.substring(0, 10)] = a.shift_type;
 
     const prevActualMin = await fetchPrevActualMin(emp.id, year, month, settingsMap);
 
