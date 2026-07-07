@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Attendance, Employee, SHIFT_COLORS, SHIFT_LABELS, ShiftType } from '@/lib/types';
+import { Attendance, BUILTIN_SHIFTS, CUSTOM_SHIFT_COLORS, Employee, SHIFT_COLORS, SHIFT_LABELS, ShiftSetting, ShiftType } from '@/lib/types';
 import { exportAttendanceExcel } from '@/lib/exportExcel';
 
 interface Props {
@@ -11,12 +11,16 @@ interface Props {
 }
 
 const DAYS_OF_WEEK = ['日', '月', '火', '水', '木', '金', '土'];
-const SHIFT_OPTIONS: ShiftType[] = ['day', 'night_full', 'night_only', 'paid_leave'];
 
 export default function AttendanceCalendar({ employee, year, month }: Props) {
   const [attendance, setAttendance] = useState<Record<string, ShiftType>>({});
+  const [shiftSettings, setShiftSettings] = useState<ShiftSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCell, setActiveCell] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/shift-settings').then(r => r.json()).then(setShiftSettings);
+  }, []);
 
   const fetchAttendance = useCallback(async () => {
     setLoading(true);
@@ -75,10 +79,26 @@ export default function AttendanceCalendar({ employee, year, month }: Props) {
   const startDow = new Date(year, month - 1, 1).getDay();
   const totalRows = Math.ceil((startDow + days.length) / 7);
 
+  // DBから取得したシフト一覧（表示順）
+  const BUILTIN_ORDER = ['day', 'night_full', 'night_only', 'paid_leave'];
+  const builtinSettings = BUILTIN_ORDER.map(t => shiftSettings.find(s => s.shift_type === t)).filter(Boolean) as ShiftSetting[];
+  const customSettings = shiftSettings.filter(s => !BUILTIN_SHIFTS.includes(s.shift_type as never));
+  const allShiftSettings = [...builtinSettings, ...customSettings];
+
+  // ラベルとカラーをDBデータから動的に解決
+  const getLabel = (shift_type: string) => {
+    const s = shiftSettings.find(x => x.shift_type === shift_type);
+    return s?.label || SHIFT_LABELS[shift_type] || shift_type;
+  };
+  const getColor = (shift_type: string, idx: number) => {
+    if (SHIFT_COLORS[shift_type]) return SHIFT_COLORS[shift_type];
+    return CUSTOM_SHIFT_COLORS[idx % CUSTOM_SHIFT_COLORS.length];
+  };
+
   // Summary counts
-  const counts = { day: 0, night_full: 0, night_only: 0, paid_leave: 0 };
+  const counts: Record<string, number> = {};
   for (const s of Object.values(attendance)) {
-    counts[s]++;
+    counts[s] = (counts[s] ?? 0) + 1;
   }
 
   if (loading) return <div className="text-center text-gray-400 py-20">読み込み中...</div>;
@@ -87,9 +107,9 @@ export default function AttendanceCalendar({ employee, year, month }: Props) {
     <div>
       {/* Summary bar */}
       <div className="flex gap-4 mb-4 flex-wrap items-center">
-        {SHIFT_OPTIONS.map(s => (
-          <div key={s} className={`px-3 py-1.5 rounded-full text-sm font-medium ${SHIFT_COLORS[s]}`}>
-            {SHIFT_LABELS[s]}: {counts[s]}日
+        {allShiftSettings.map((s, i) => (
+          <div key={s.shift_type} className={`px-3 py-1.5 rounded-full text-sm font-medium ${getColor(s.shift_type, i - 4)}`}>
+            {getLabel(s.shift_type)}: {counts[s.shift_type] ?? 0}日
           </div>
         ))}
         <div className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700">
@@ -150,8 +170,8 @@ export default function AttendanceCalendar({ employee, year, month }: Props) {
                 </span>
 
                 {shift && (
-                  <div className={`mt-1 text-xs px-1.5 py-0.5 rounded font-medium ${SHIFT_COLORS[shift]} truncate`}>
-                    {SHIFT_LABELS[shift]}
+                  <div className={`mt-1 text-xs px-1.5 py-0.5 rounded font-medium truncate ${getColor(shift, allShiftSettings.findIndex(x => x.shift_type === shift) - 4)}`}>
+                    {getLabel(shift)}
                   </div>
                 )}
 
@@ -159,15 +179,15 @@ export default function AttendanceCalendar({ employee, year, month }: Props) {
                 {isActive && (
                   <div className={`absolute z-20 left-0 bg-white border border-gray-200 rounded-lg shadow-lg w-40 py-1 ${isLastRows ? 'bottom-full mb-1' : 'top-full mt-1'}`}
                     onClick={e => e.stopPropagation()}>
-                    {SHIFT_OPTIONS.map(s => (
+                    {allShiftSettings.map((s, i) => (
                       <button
-                        key={s}
-                        onClick={() => setShift(key, s)}
+                        key={s.shift_type}
+                        onClick={() => setShift(key, s.shift_type)}
                         className={`w-full text-left px-3 py-2 text-xs hover:bg-gray-50 ${
-                          shift === s ? 'font-bold text-blue-600' : 'text-gray-700'
+                          shift === s.shift_type ? 'font-bold text-blue-600' : 'text-gray-700'
                         }`}
                       >
-                        {SHIFT_LABELS[s]}
+                        {getLabel(s.shift_type)}
                       </button>
                     ))}
                     {shift && (

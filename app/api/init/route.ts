@@ -63,27 +63,31 @@ export async function POST() {
 
   await query(`
     CREATE TABLE IF NOT EXISTS shift_settings (
-      shift_type VARCHAR(20) PRIMARY KEY,
+      shift_type VARCHAR(50) PRIMARY KEY,
+      label VARCHAR(50) NOT NULL DEFAULT '',
       clock_in VARCHAR(10) NOT NULL DEFAULT '',
       clock_out VARCHAR(10) NOT NULL DEFAULT '',
       rest_time VARCHAR(10) NOT NULL DEFAULT '',
-      actual_time VARCHAR(10) NOT NULL DEFAULT ''
+      actual_time VARCHAR(10) NOT NULL DEFAULT '',
+      is_builtin BOOLEAN NOT NULL DEFAULT FALSE
     )
   `);
+  await query(`ALTER TABLE shift_settings ADD COLUMN IF NOT EXISTS label VARCHAR(50) NOT NULL DEFAULT ''`);
+  await query(`ALTER TABLE shift_settings ADD COLUMN IF NOT EXISTS is_builtin BOOLEAN NOT NULL DEFAULT FALSE`);
 
   // シフト設定の初期データ
   const defaultSettings = [
-    { shift_type: 'day',        clock_in: '8:30',  clock_out: '17:00', rest_time: '2:00', actual_time: '6:30' },
-    { shift_type: 'night_full', clock_in: '',       clock_out: '',      rest_time: '',     actual_time: '' },
-    { shift_type: 'night_only', clock_in: '',       clock_out: '',      rest_time: '',     actual_time: '' },
-    { shift_type: 'paid_leave', clock_in: '有給',   clock_out: '',      rest_time: '',     actual_time: '' },
+    { shift_type: 'day',        label: '日勤',        clock_in: '8:30',  clock_out: '17:00', rest_time: '2:00', actual_time: '6:30' },
+    { shift_type: 'night_full', label: '夜勤(日+夜)', clock_in: '',       clock_out: '',      rest_time: '',     actual_time: '' },
+    { shift_type: 'night_only', label: '夜勤(夜のみ)', clock_in: '',      clock_out: '',      rest_time: '',     actual_time: '' },
+    { shift_type: 'paid_leave', label: '有給',         clock_in: '有給',  clock_out: '',      rest_time: '',     actual_time: '' },
   ];
   for (const s of defaultSettings) {
     await query(
-      `INSERT INTO shift_settings (shift_type, clock_in, clock_out, rest_time, actual_time)
-       VALUES ($1, $2, $3, $4, $5)
-       ON CONFLICT (shift_type) DO NOTHING`,
-      [s.shift_type, s.clock_in, s.clock_out, s.rest_time, s.actual_time]
+      `INSERT INTO shift_settings (shift_type, label, clock_in, clock_out, rest_time, actual_time, is_builtin)
+       VALUES ($1, $2, $3, $4, $5, $6, TRUE)
+       ON CONFLICT (shift_type) DO UPDATE SET is_builtin = TRUE, label = CASE WHEN shift_settings.label = '' THEN $2 ELSE shift_settings.label END`,
+      [s.shift_type, s.label, s.clock_in, s.clock_out, s.rest_time, s.actual_time]
     );
   }
 

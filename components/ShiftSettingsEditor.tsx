@@ -1,19 +1,33 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ShiftSetting, ShiftType, SHIFT_LABELS } from '@/lib/types';
+import { BUILTIN_SHIFTS, ShiftSetting } from '@/lib/types';
 
 const NAVY = '#1B2B5E';
 const GOLD = '#C9A84C';
 
-const SHIFT_ORDER: ShiftType[] = ['day', 'night_full', 'night_only', 'paid_leave'];
+const BUILTIN_ORDER = ['day', 'night_full', 'night_only', 'paid_leave'];
 
-const SHIFT_COLORS: Record<ShiftType, { bg: string; text: string }> = {
+const BUILTIN_COLORS: Record<string, { bg: string; text: string }> = {
   day:        { bg: '#EFF6FF', text: '#1D4ED8' },
   night_full: { bg: '#F5F3FF', text: '#6D28D9' },
   night_only: { bg: '#EEF2FF', text: '#4338CA' },
   paid_leave: { bg: '#F0FDF4', text: '#166534' },
 };
+
+const CUSTOM_PALETTE = [
+  { bg: '#FFF7ED', text: '#C2410C' },
+  { bg: '#FFF1F2', text: '#BE123C' },
+  { bg: '#F0FDFA', text: '#0F766E' },
+  { bg: '#FEFCE8', text: '#A16207' },
+  { bg: '#ECFEFF', text: '#0E7490' },
+  { bg: '#F7FEE7', text: '#4D7C0F' },
+];
+
+function shiftColor(s: ShiftSetting & { is_builtin?: boolean }, idx: number) {
+  if (BUILTIN_COLORS[s.shift_type]) return BUILTIN_COLORS[s.shift_type];
+  return CUSTOM_PALETTE[idx % CUSTOM_PALETTE.length];
+}
 
 function TimeInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
@@ -30,27 +44,37 @@ function TimeInput({ value, onChange, placeholder }: { value: string; onChange: 
   );
 }
 
+type ExtShiftSetting = ShiftSetting & { is_builtin?: boolean };
+
+const EMPTY_NEW = { label: '', clock_in: '', clock_out: '', rest_time: '', actual_time: '' };
+
 export default function ShiftSettingsEditor() {
-  const [settings, setSettings] = useState<ShiftSetting[]>([]);
+  const [settings, setSettings] = useState<ExtShiftSetting[]>([]);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newShift, setNewShift] = useState(EMPTY_NEW);
+  const [adding, setAdding] = useState(false);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
   };
 
-  useEffect(() => {
+  const load = () =>
     fetch('/api/shift-settings')
       .then(r => r.json())
-      .then((data: ShiftSetting[]) => {
-        // sort by defined order
-        const sorted = SHIFT_ORDER.map(t => data.find(s => s.shift_type === t)).filter(Boolean) as ShiftSetting[];
-        setSettings(sorted);
+      .then((data: ExtShiftSetting[]) => {
+        const builtin = BUILTIN_ORDER
+          .map(t => data.find(s => s.shift_type === t))
+          .filter(Boolean) as ExtShiftSetting[];
+        const custom = data.filter(s => !BUILTIN_SHIFTS.includes(s.shift_type as never));
+        setSettings([...builtin, ...custom]);
       });
-  }, []);
 
-  const update = (shift_type: ShiftType, field: keyof Omit<ShiftSetting, 'shift_type'>, value: string) => {
+  useEffect(() => { load(); }, []);
+
+  const update = (shift_type: string, field: keyof Omit<ExtShiftSetting, 'shift_type' | 'is_builtin'>, value: string) => {
     setSettings(prev => prev.map(s => s.shift_type === shift_type ? { ...s, [field]: value } : s));
   };
 
@@ -64,6 +88,34 @@ export default function ShiftSettingsEditor() {
     setSaving(false);
     showToast('保存しました');
   };
+
+  const addShift = async () => {
+    if (!newShift.label.trim()) return;
+    setAdding(true);
+    await fetch('/api/shift-settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newShift),
+    });
+    setAdding(false);
+    setShowAdd(false);
+    setNewShift(EMPTY_NEW);
+    await load();
+    showToast('シフトを追加しました');
+  };
+
+  const deleteShift = async (shift_type: string) => {
+    if (!confirm('このシフト種別を削除しますか？過去の勤怠記録は残ります。')) return;
+    await fetch('/api/shift-settings', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shift_type }),
+    });
+    await load();
+    showToast('削除しました');
+  };
+
+  const customCount = settings.filter(s => !BUILTIN_SHIFTS.includes(s.shift_type as never)).length;
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -86,7 +138,7 @@ export default function ShiftSettingsEditor() {
         </div>
       </div>
 
-      {/* Table header */}
+      {/* Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         <div className="grid grid-cols-12 px-6 py-3 text-xs font-bold tracking-wider" style={{ background: NAVY, color: GOLD }}>
           <div className="col-span-3">シフト種別</div>
@@ -94,18 +146,22 @@ export default function ShiftSettingsEditor() {
           <div className="col-span-2 text-center">退社時刻</div>
           <div className="col-span-2 text-center">休憩時間</div>
           <div className="col-span-2 text-center">実働時間</div>
-          <div className="col-span-1 text-center">形式</div>
+          <div className="col-span-1 text-center"></div>
         </div>
 
         <div className="divide-y divide-gray-100">
-          {settings.map(s => {
-            const color = SHIFT_COLORS[s.shift_type];
+          {settings.map((s, i) => {
+            const color = shiftColor(s, i - 4);
+            const isBuiltin = BUILTIN_SHIFTS.includes(s.shift_type as never);
             return (
               <div key={s.shift_type} className="grid grid-cols-12 items-center px-6 py-4 gap-2">
-                <div className="col-span-3">
+                <div className="col-span-3 flex items-center gap-2">
                   <span className="px-3 py-1.5 rounded-full text-xs font-bold" style={{ background: color.bg, color: color.text }}>
-                    {SHIFT_LABELS[s.shift_type]}
+                    {s.label || s.shift_type}
                   </span>
+                  {isBuiltin && (
+                    <span className="text-xs" style={{ color: '#d1d5db' }}>固定</span>
+                  )}
                 </div>
                 <div className="col-span-2">
                   <TimeInput value={s.clock_in} onChange={v => update(s.shift_type, 'clock_in', v)} placeholder="例: 8:30" />
@@ -119,15 +175,70 @@ export default function ShiftSettingsEditor() {
                 <div className="col-span-2">
                   <TimeInput value={s.actual_time} onChange={v => update(s.shift_type, 'actual_time', v)} placeholder="例: 6:30" />
                 </div>
-                <div className="col-span-1 text-center text-xs" style={{ color: '#9ca3af' }}>
-                  h:mm
+                <div className="col-span-1 text-center">
+                  {!isBuiltin && (
+                    <button onClick={() => deleteShift(s.shift_type)}
+                      className="text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                      style={{ color: '#ef4444' }} title="削除">
+                      ✕
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
 
-        <div className="px-6 py-4 border-t flex justify-end" style={{ borderColor: '#e5e7eb', background: '#FAFAFA' }}>
+        {/* Add form */}
+        {showAdd && (
+          <div className="border-t px-6 py-4" style={{ background: '#FAFFF4', borderColor: '#d1fae5' }}>
+            <div className="text-sm font-bold mb-3" style={{ color: NAVY }}>新しいシフト種別を追加</div>
+            <div className="grid grid-cols-12 gap-2 items-center">
+              <div className="col-span-3">
+                <input
+                  type="text"
+                  value={newShift.label}
+                  onChange={e => setNewShift(p => ({ ...p, label: e.target.value }))}
+                  placeholder="シフト名（例: 早番）"
+                  className="w-full px-3 py-2 border rounded text-sm focus:outline-none"
+                  style={{ borderColor: GOLD }}
+                  autoFocus
+                />
+              </div>
+              <div className="col-span-2">
+                <TimeInput value={newShift.clock_in} onChange={v => setNewShift(p => ({ ...p, clock_in: v }))} placeholder="例: 7:00" />
+              </div>
+              <div className="col-span-2">
+                <TimeInput value={newShift.clock_out} onChange={v => setNewShift(p => ({ ...p, clock_out: v }))} placeholder="例: 15:00" />
+              </div>
+              <div className="col-span-2">
+                <TimeInput value={newShift.rest_time} onChange={v => setNewShift(p => ({ ...p, rest_time: v }))} placeholder="例: 1:00" />
+              </div>
+              <div className="col-span-2">
+                <TimeInput value={newShift.actual_time} onChange={v => setNewShift(p => ({ ...p, actual_time: v }))} placeholder="例: 7:00" />
+              </div>
+              <div className="col-span-1 flex gap-1 justify-center">
+                <button onClick={addShift} disabled={adding || !newShift.label.trim()}
+                  className="text-xs px-2 py-1.5 rounded font-bold transition-opacity hover:opacity-85"
+                  style={{ background: NAVY, color: GOLD, opacity: (adding || !newShift.label.trim()) ? 0.5 : 1 }}>
+                  追加
+                </button>
+              </div>
+            </div>
+            <button onClick={() => { setShowAdd(false); setNewShift(EMPTY_NEW); }}
+              className="mt-2 text-xs" style={{ color: '#9ca3af' }}>キャンセル</button>
+          </div>
+        )}
+
+        <div className="px-6 py-4 border-t flex items-center justify-between" style={{ borderColor: '#e5e7eb', background: '#FAFAFA' }}>
+          <button
+            onClick={() => setShowAdd(true)}
+            disabled={showAdd}
+            className="flex items-center gap-2 px-4 py-2 rounded text-sm font-bold transition-opacity hover:opacity-85"
+            style={{ background: showAdd ? '#e5e7eb' : '#F0FDF4', color: showAdd ? '#9ca3af' : '#166534', border: '1px solid #bbf7d0' }}
+          >
+            ＋ シフト種別を追加
+          </button>
           <button
             onClick={save}
             disabled={saving}
@@ -140,7 +251,7 @@ export default function ShiftSettingsEditor() {
       </div>
 
       <p className="text-xs text-gray-400 mt-3 text-center">
-        時刻は「h:mm」形式で入力してください（例: 8:30 / 17:00 / 翌8:30）
+        時刻は「h:mm」形式で入力してください（例: 8:30 / 17:00）　固定シフトは削除できません
       </p>
     </div>
   );
