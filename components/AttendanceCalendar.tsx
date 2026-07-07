@@ -79,11 +79,8 @@ export default function AttendanceCalendar({ employee, year, month }: Props) {
   const startDow = new Date(year, month - 1, 1).getDay();
   const totalRows = Math.ceil((startDow + days.length) / 7);
 
-  // DBから取得したシフト一覧（表示順）
-  const BUILTIN_ORDER = ['day', 'night_full', 'night_only', 'paid_leave'];
-  const builtinSettings = BUILTIN_ORDER.map(t => shiftSettings.find(s => s.shift_type === t)).filter(Boolean) as ShiftSetting[];
-  const customSettings = shiftSettings.filter(s => !BUILTIN_SHIFTS.includes(s.shift_type as never));
-  const allShiftSettings = [...builtinSettings, ...customSettings];
+  // DBから取得した順序をそのまま使う（sort_order順）
+  const allShiftSettings = shiftSettings;
 
   // ラベルとカラーをDBデータから動的に解決
   const getLabel = (shift_type: string) => {
