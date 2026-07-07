@@ -90,11 +90,10 @@ function addAttendanceSheet(
     cell.alignment = { horizontal: 'center', vertical: 'middle' };
   });
 
-  let totalActual = 0;
-  let totalNight  = 0;
-  let workDays    = 0;
-  let paidDays    = 0;
-  let dayCount    = 0;
+  let totalActual    = 0;
+  let totalNight     = 0;
+  let paidDays       = 0;
+  let dayCount       = 0;
   let nightFullCount = 0;
   let nightOnlyCount = 0;
 
@@ -124,11 +123,11 @@ function addAttendanceSheet(
     const nMin = nightMin[d];
     if (aMin !== null) totalActual += aMin;
     if (nMin !== null) totalNight  += nMin;
-    const shift = attendance[`${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`];
-    if (shift === 'day')        { workDays++; dayCount++; }
-    if (shift === 'night_full') { workDays++; nightFullCount++; }
-    if (shift === 'night_only') { workDays++; nightOnlyCount++; }
-    if (shift === 'paid_leave') { paidDays++; }
+    const shift = attendance[key];
+    if (shift === 'day')        dayCount++;
+    if (shift === 'night_full') nightFullCount++;
+    if (shift === 'night_only') nightOnlyCount++;
+    if (shift === 'paid_leave') paidDays++;
 
     const row = ws.addRow([
       `${year}/${month}/${d}`,
@@ -156,7 +155,7 @@ function addAttendanceSheet(
   // 合計行
   const totalRow = ws.addRow([
     '合計',
-    `出勤${workDays}日　有給${paidDays}日`,
+    `出勤${dayCount + nightFullCount + nightOnlyCount}日　有給${paidDays}日`,
     `日勤:${dayCount}回`,
     `夜勤(日+夜):${nightFullCount}回`,
     `夜勤(夜のみ):${nightOnlyCount}回`,
