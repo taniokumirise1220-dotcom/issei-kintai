@@ -38,6 +38,8 @@ export interface ShiftSetting {
   clock_out: string;
   rest_time: string;
   actual_time: string;
+  sort_order?: number;
+  is_builtin?: boolean;
 }
 
 export const SHIFT_LABELS: Record<string, string> = {

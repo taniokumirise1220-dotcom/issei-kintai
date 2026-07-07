@@ -74,20 +74,23 @@ export async function POST() {
   `);
   await query(`ALTER TABLE shift_settings ADD COLUMN IF NOT EXISTS label VARCHAR(50) NOT NULL DEFAULT ''`);
   await query(`ALTER TABLE shift_settings ADD COLUMN IF NOT EXISTS is_builtin BOOLEAN NOT NULL DEFAULT FALSE`);
+  await query(`ALTER TABLE shift_settings ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 99`);
 
   // シフト設定の初期データ
   const defaultSettings = [
-    { shift_type: 'day',        label: '日勤',        clock_in: '8:30',  clock_out: '17:00', rest_time: '2:00', actual_time: '6:30' },
-    { shift_type: 'night_full', label: '夜勤(日+夜)', clock_in: '',       clock_out: '',      rest_time: '',     actual_time: '' },
-    { shift_type: 'night_only', label: '夜勤(夜のみ)', clock_in: '',      clock_out: '',      rest_time: '',     actual_time: '' },
-    { shift_type: 'paid_leave', label: '有給',         clock_in: '有給',  clock_out: '',      rest_time: '',     actual_time: '' },
+    { shift_type: 'day',        label: '日勤',        clock_in: '8:30',  clock_out: '17:00', rest_time: '2:00', actual_time: '6:30', sort_order: 1 },
+    { shift_type: 'night_full', label: '夜勤(日+夜)', clock_in: '',       clock_out: '',      rest_time: '',     actual_time: '',     sort_order: 2 },
+    { shift_type: 'night_only', label: '夜勤(夜のみ)', clock_in: '',      clock_out: '',      rest_time: '',     actual_time: '',     sort_order: 3 },
+    { shift_type: 'paid_leave', label: '有給',         clock_in: '有給',  clock_out: '',      rest_time: '',     actual_time: '',     sort_order: 4 },
   ];
   for (const s of defaultSettings) {
     await query(
-      `INSERT INTO shift_settings (shift_type, label, clock_in, clock_out, rest_time, actual_time, is_builtin)
-       VALUES ($1, $2, $3, $4, $5, $6, TRUE)
-       ON CONFLICT (shift_type) DO UPDATE SET is_builtin = TRUE, label = CASE WHEN shift_settings.label = '' THEN $2 ELSE shift_settings.label END`,
-      [s.shift_type, s.label, s.clock_in, s.clock_out, s.rest_time, s.actual_time]
+      `INSERT INTO shift_settings (shift_type, label, clock_in, clock_out, rest_time, actual_time, is_builtin, sort_order)
+       VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7)
+       ON CONFLICT (shift_type) DO UPDATE SET is_builtin = TRUE,
+         label = CASE WHEN shift_settings.label = '' THEN $2 ELSE shift_settings.label END,
+         sort_order = CASE WHEN shift_settings.sort_order = 99 THEN $7 ELSE shift_settings.sort_order END`,
+      [s.shift_type, s.label, s.clock_in, s.clock_out, s.rest_time, s.actual_time, s.sort_order]
     );
   }
 
