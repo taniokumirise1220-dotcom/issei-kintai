@@ -40,6 +40,7 @@ export interface ShiftSetting {
   actual_time: string;
   night_allowance: number;
   show_in_allowance: boolean;
+  shift_behavior: 'day' | 'night_full' | 'night_only' | 'paid_leave';
   sort_order?: number;
   is_builtin?: boolean;
 }

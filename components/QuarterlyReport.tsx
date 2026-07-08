@@ -28,12 +28,14 @@ function calcAdvance1(employee: Employee, attendance: Attendance[], shiftMap: Re
 
   for (const a of attendance) {
     const shift = a.shift_type as ShiftType;
-    const nightAmt = shiftMap[shift]?.night_allowance ?? 0;
-    if (shift === 'night_full') {
+    const s = shiftMap[shift];
+    const nightAmt = s?.night_allowance ?? 0;
+    const behavior = s?.shift_behavior ?? 'day';
+    if (behavior === 'night_full') {
       stubBasicPay   += employee.daily_rate;
       stubNightAllow += employee.daily_rate + nightAmt;
       payrollNight   += nightAmt;
-    } else if (nightAmt > 0) {
+    } else if (behavior === 'night_only') {
       stubNightAllow += employee.daily_rate + nightAmt;
       payrollNight   += nightAmt;
     } else {

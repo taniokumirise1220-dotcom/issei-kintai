@@ -124,10 +124,11 @@ function addAttendanceSheet(
     if (aMin !== null) totalActual += aMin;
     if (nMin !== null) totalNight  += nMin;
     const shift = attendance[key];
-    if (shift === 'day')        dayCount++;
-    if (shift === 'night_full') nightFullCount++;
-    if (shift === 'night_only') nightOnlyCount++;
-    if (shift === 'paid_leave') paidDays++;
+    const behavior = shift ? (settingsMap[shift]?.shift_behavior ?? 'day') : null;
+    if (behavior === 'day')        dayCount++;
+    if (behavior === 'night_full') nightFullCount++;
+    if (behavior === 'night_only') nightOnlyCount++;
+    if (behavior === 'paid_leave') paidDays++;
 
     const row = ws.addRow([
       `${year}/${month}/${d}`,

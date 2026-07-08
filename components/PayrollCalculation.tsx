@@ -20,13 +20,14 @@ function calcPayroll(employee: Employee, attendance: Attendance[], shiftMap: Rec
 
   for (const a of attendance) {
     const shift = a.shift_type as ShiftType;
-    const nightAmt = shiftMap[shift]?.night_allowance ?? 0;
-    if (shift === 'night_full') {
+    const s = shiftMap[shift];
+    const nightAmt = s?.night_allowance ?? 0;
+    const behavior = s?.shift_behavior ?? 'day';
+    if (behavior === 'night_full') {
       stubBasicPay   += employee.daily_rate;
       stubNightAllow += employee.daily_rate + nightAmt;
       payrollNight   += nightAmt;
-    } else if (nightAmt > 0) {
-      // night_only またはカスタム夜間シフト
+    } else if (behavior === 'night_only') {
       stubNightAllow += employee.daily_rate + nightAmt;
       payrollNight   += nightAmt;
     } else {
@@ -145,9 +146,10 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
   const displayAdv2  = advance2;
   const displayTotal = confirmed && snapTotal !== null ? snapTotal : displayBasic + displayNight + displayAdv1 + displayAdv2;
 
-  const nightCount = attendance.filter(a =>
-    a.shift_type === 'night_full' || a.shift_type === 'night_only'
-  ).length;
+  const nightCount = attendance.filter(a => {
+    const b = shiftMap[a.shift_type]?.shift_behavior ?? 'day';
+    return b === 'night_full' || b === 'night_only';
+  }).length;
 
   const payRows = [
     { label: '基本給',   value: displayBasic, color: NAVY,      note: '月給' },

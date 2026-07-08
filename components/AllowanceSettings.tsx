@@ -42,7 +42,7 @@ function TextInput({ value, onChange, placeholder }: { value: string; onChange: 
   );
 }
 
-const EMPTY_NEW = { label: '', night_allowance: 0 };
+const EMPTY_NEW = { label: '', night_allowance: 0, shift_behavior: 'day' as ShiftSetting['shift_behavior'] };
 
 export default function AllowanceSettings({ employees: _employees, onUpdated: _onUpdated }: Props) {
   const [settings, setSettings] = useState<ShiftSetting[]>([]);
@@ -88,7 +88,7 @@ export default function AllowanceSettings({ employees: _employees, onUpdated: _o
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ label: newShift.label, night_allowance: newShift.night_allowance,
-        clock_in: '', clock_out: '', rest_time: '', actual_time: '' }),
+        shift_behavior: newShift.shift_behavior, clock_in: '', clock_out: '', rest_time: '', actual_time: '' }),
     });
     setAdding(false);
     setShowAdd(false);
@@ -132,8 +132,9 @@ export default function AllowanceSettings({ employees: _employees, onUpdated: _o
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         <div className="grid grid-cols-12 px-6 py-3 text-xs font-bold tracking-wider" style={{ background: NAVY, color: GOLD }}>
-          <div className="col-span-5">シフト種別名</div>
-          <div className="col-span-4 text-right">夜間手当単価 (円/回)</div>
+          <div className="col-span-3">シフト種別名</div>
+          <div className="col-span-3 text-center">振る舞い</div>
+          <div className="col-span-3 text-right">夜間手当単価 (円/回)</div>
           <div className="col-span-2 text-center">夜間</div>
           <div className="col-span-1" />
         </div>
@@ -145,18 +146,34 @@ export default function AllowanceSettings({ employees: _employees, onUpdated: _o
               <div key={s.shift_type} className="grid grid-cols-12 items-center px-6 py-3 gap-2"
                 style={{ background: i % 2 === 0 ? 'white' : '#f9fafb' }}>
                 {/* シフト種別名 */}
-                <div className="col-span-5">
-                  {isBuiltin ? (
-                    <div className="flex items-center gap-2">
-                      <TextInput value={s.label} onChange={v => updateLabel(s.shift_type, v)} />
-                      <span className="text-xs shrink-0" style={{ color: '#d1d5db' }}>固定</span>
-                    </div>
-                  ) : (
+                <div className="col-span-3">
+                  <div className="flex items-center gap-1">
                     <TextInput value={s.label} onChange={v => updateLabel(s.shift_type, v)} />
-                  )}
+                    {isBuiltin && <span className="text-xs shrink-0" style={{ color: '#d1d5db' }}>固定</span>}
+                  </div>
+                </div>
+                {/* 振る舞い */}
+                <div className="col-span-3 px-1">
+                  <select
+                    value={s.shift_behavior ?? 'day'}
+                    onChange={e => setSettings(prev => prev.map(x =>
+                      x.shift_type === s.shift_type
+                        ? { ...x, shift_behavior: e.target.value as ShiftSetting['shift_behavior'] }
+                        : x
+                    ))}
+                    className="w-full px-2 py-2 border rounded text-xs focus:outline-none"
+                    style={{ borderColor: '#d1d5db', color: NAVY }}
+                    onFocus={e => (e.target.style.borderColor = GOLD)}
+                    onBlur={e => (e.target.style.borderColor = '#d1d5db')}
+                  >
+                    <option value="day">日勤</option>
+                    <option value="night_full">夜勤(日+夜)</option>
+                    <option value="night_only">夜勤(夜のみ)</option>
+                    <option value="paid_leave">有給</option>
+                  </select>
                 </div>
                 {/* 夜間手当単価 */}
-                <div className="col-span-4">
+                <div className="col-span-3">
                   <NumInput value={s.night_allowance ?? 0} onChange={v => updateNight(s.shift_type, v)} />
                 </div>
                 {/* 夜間バッジ */}
@@ -188,7 +205,7 @@ export default function AllowanceSettings({ employees: _employees, onUpdated: _o
           <div className="border-t px-6 py-4" style={{ background: '#FAFFF4', borderColor: '#d1fae5' }}>
             <div className="text-sm font-bold mb-3" style={{ color: NAVY }}>新しいシフト種別を追加</div>
             <div className="grid grid-cols-12 gap-2 items-center">
-              <div className="col-span-5">
+              <div className="col-span-3">
                 <input
                   type="text"
                   value={newShift.label}
@@ -199,7 +216,20 @@ export default function AllowanceSettings({ employees: _employees, onUpdated: _o
                   style={{ borderColor: GOLD }}
                 />
               </div>
-              <div className="col-span-4">
+              <div className="col-span-3 px-1">
+                <select
+                  value={newShift.shift_behavior}
+                  onChange={e => setNewShift(p => ({ ...p, shift_behavior: e.target.value as ShiftSetting['shift_behavior'] }))}
+                  className="w-full px-2 py-2 border rounded text-xs focus:outline-none"
+                  style={{ borderColor: '#d1d5db', color: NAVY }}
+                >
+                  <option value="day">日勤</option>
+                  <option value="night_full">夜勤(日+夜)</option>
+                  <option value="night_only">夜勤(夜のみ)</option>
+                  <option value="paid_leave">有給</option>
+                </select>
+              </div>
+              <div className="col-span-3">
                 <NumInput value={newShift.night_allowance} onChange={v => setNewShift(p => ({ ...p, night_allowance: v }))} />
               </div>
               <div className="col-span-2" />
