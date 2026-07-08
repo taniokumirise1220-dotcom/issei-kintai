@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Attendance, calcShiftPay, Employee, MonthlyAllowance, SHIFT_LABELS, ShiftType } from '@/lib/types';
+import { Attendance, calcShiftPay, Employee, MonthlyAllowance, SHIFT_LABELS, ShiftSetting, ShiftType } from '@/lib/types';
 
 interface Props {
   employee: Employee;
@@ -9,11 +9,20 @@ interface Props {
   month: number;
 }
 
-const SHIFT_OPTIONS: ShiftType[] = ['day', 'night_full', 'night_only', 'paid_leave'];
-
 export default function PayStub({ employee, year, month }: Props) {
   const [attendance, setAttendance] = useState<Attendance[]>([]);
   const [allowance, setAllowance] = useState<MonthlyAllowance | null>(null);
+  const [shiftMap, setShiftMap] = useState<Record<string, ShiftSetting>>({});
+
+  useEffect(() => {
+    fetch('/api/shift-settings', { cache: 'no-store' })
+      .then(r => r.json())
+      .then((data: ShiftSetting[]) => {
+        const map: Record<string, ShiftSetting> = {};
+        for (const s of data) map[s.shift_type] = s;
+        setShiftMap(map);
+      });
+  }, []);
   const [form, setForm] = useState({
     family_allowance: 0,
     skill_allowance: 0,
@@ -77,15 +86,21 @@ export default function PayStub({ employee, year, month }: Props) {
 
   for (const row of attendance) {
     const shift = row.shift_type as ShiftType;
-    const label = SHIFT_LABELS[shift];
+    const s = shiftMap[shift];
+    const label = s?.label || SHIFT_LABELS[shift] || shift;
     shiftCounts[label] = (shiftCounts[label] || 0) + 1;
 
-    if (shift === 'night_full') {
+    const nightAmt = s?.night_allowance ?? 0;
+    const behavior = s?.shift_behavior ?? 'day';
+    if (behavior === 'night_full') {
       basicPay += employee.daily_rate;
       basicPayDays += 1;
-      nightAllowance += employee.daily_rate + 5000;
-    } else if (shift === 'night_only') {
-      nightAllowance += employee.daily_rate + 3000;
+      nightAllowance += employee.daily_rate + nightAmt;
+    } else if (behavior === 'night_only') {
+      nightAllowance += employee.daily_rate + nightAmt;
+    } else if (behavior === 'paid_leave') {
+      basicPay += employee.daily_rate;
+      basicPayDays += 1;
     } else {
       basicPay += employee.daily_rate;
       basicPayDays += 1;
@@ -123,16 +138,11 @@ export default function PayStub({ employee, year, month }: Props) {
           <p className="text-gray-400 text-sm">この月の出勤データがありません</p>
         ) : (
           <div className="flex gap-4 flex-wrap">
-            {SHIFT_OPTIONS.map(s => {
-              const label = SHIFT_LABELS[s];
-              const cnt = shiftCounts[label] || 0;
-              if (cnt === 0) return null;
-              return (
-                <div key={s} className="text-sm text-gray-700">
-                  <span className="font-medium">{label}</span>: {cnt}日
-                </div>
-              );
-            })}
+            {Object.entries(shiftCounts).map(([label, cnt]) => (
+              <div key={label} className="text-sm text-gray-700">
+                <span className="font-medium">{label}</span>: {cnt}日
+              </div>
+            ))}
           </div>
         )}
       </div>
