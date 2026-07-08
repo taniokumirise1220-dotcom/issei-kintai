@@ -8,9 +8,10 @@ import EmployeeEditor from '@/components/EmployeeEditor';
 import ShiftSettingsEditor from '@/components/ShiftSettingsEditor';
 import PayrollCalculation from '@/components/PayrollCalculation';
 import QuarterlyReport from '@/components/QuarterlyReport';
+import AllowanceSettings from '@/components/AllowanceSettings';
 import { exportAllAttendanceExcel } from '@/lib/exportExcel';
 
-type View = 'calendar' | 'paystub' | 'employees' | 'workhours' | 'payroll' | 'quarterly';
+type View = 'calendar' | 'paystub' | 'employees' | 'workhours' | 'payroll' | 'quarterly' | 'allowance';
 
 export default function Home() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -66,6 +67,7 @@ export default function Home() {
     { key: 'employees', label: '従業員管理', icon: '👤' },
     { key: 'payroll',    label: '給与計算',    icon: '💴' },
     { key: 'quarterly',  label: '四半期報酬',  icon: '📊' },
+    { key: 'allowance',  label: '手当設定',    icon: '💰' },
     { key: 'workhours',  label: '労働時間設定', icon: '⏰' },
   ];
 
@@ -232,6 +234,8 @@ export default function Home() {
             <EmployeeEditor employees={employees} onUpdated={loadEmployees} />
           ) : view === 'workhours' ? (
             <ShiftSettingsEditor />
+          ) : view === 'allowance' ? (
+            <AllowanceSettings employees={employees} onUpdated={loadEmployees} />
           ) : view === 'quarterly' ? (
             <QuarterlyReport employees={employees} />
           ) : view === 'payroll' ? (
