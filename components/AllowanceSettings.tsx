@@ -139,9 +139,7 @@ export default function AllowanceSettings({ employees: _employees, onUpdated: _o
         </div>
 
         <div className="divide-y divide-gray-100">
-          {settings.filter(s =>
-            !BUILTIN_SHIFTS.includes(s.shift_type as never) || (s.night_allowance ?? 0) > 0
-          ).map((s, i) => {
+          {settings.filter(s => s.show_in_allowance || !BUILTIN_SHIFTS.includes(s.shift_type as never)).map((s, i) => {
             const isBuiltin = BUILTIN_SHIFTS.includes(s.shift_type as never);
             return (
               <div key={s.shift_type} className="grid grid-cols-12 items-center px-6 py-3 gap-2"

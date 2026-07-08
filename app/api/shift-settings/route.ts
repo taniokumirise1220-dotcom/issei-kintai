@@ -4,7 +4,7 @@ import { ShiftSetting } from '@/lib/types';
 
 export async function GET() {
   const rows = await query<ShiftSetting>(
-    `SELECT shift_type, label, clock_in, clock_out, rest_time, actual_time, night_allowance, is_builtin, sort_order
+    `SELECT shift_type, label, clock_in, clock_out, rest_time, actual_time, night_allowance, show_in_allowance, is_builtin, sort_order
      FROM shift_settings ORDER BY sort_order ASC, shift_type`
   );
   return NextResponse.json(rows);
@@ -14,8 +14,8 @@ export async function PUT(req: NextRequest) {
   const settings: ShiftSetting[] = await req.json();
   for (const s of settings) {
     await query(
-      `UPDATE shift_settings SET label=$1, clock_in=$2, clock_out=$3, rest_time=$4, actual_time=$5, sort_order=$6, night_allowance=$7 WHERE shift_type=$8`,
-      [s.label, s.clock_in, s.clock_out, s.rest_time, s.actual_time, s.sort_order ?? 99, s.night_allowance ?? 0, s.shift_type]
+      `UPDATE shift_settings SET label=$1, clock_in=$2, clock_out=$3, rest_time=$4, actual_time=$5, sort_order=$6, night_allowance=$7, show_in_allowance=$8 WHERE shift_type=$9`,
+      [s.label, s.clock_in, s.clock_out, s.rest_time, s.actual_time, s.sort_order ?? 99, s.night_allowance ?? 0, s.show_in_allowance ?? false, s.shift_type]
     );
   }
   return NextResponse.json({ ok: true });

@@ -76,22 +76,23 @@ export async function POST() {
   await query(`ALTER TABLE shift_settings ADD COLUMN IF NOT EXISTS is_builtin BOOLEAN NOT NULL DEFAULT FALSE`);
   await query(`ALTER TABLE shift_settings ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 99`);
   await query(`ALTER TABLE shift_settings ADD COLUMN IF NOT EXISTS night_allowance INTEGER NOT NULL DEFAULT 0`);
+  await query(`ALTER TABLE shift_settings ADD COLUMN IF NOT EXISTS show_in_allowance BOOLEAN NOT NULL DEFAULT FALSE`);
 
   // シフト設定の初期データ
   const defaultSettings = [
-    { shift_type: 'day',        label: '日勤',        clock_in: '8:30',  clock_out: '17:00', rest_time: '2:00', actual_time: '6:30', sort_order: 1, night_allowance: 0 },
-    { shift_type: 'night_full', label: '夜勤(日+夜)', clock_in: '',       clock_out: '',      rest_time: '',     actual_time: '',     sort_order: 2, night_allowance: 5000 },
-    { shift_type: 'night_only', label: '夜勤(夜のみ)', clock_in: '',      clock_out: '',      rest_time: '',     actual_time: '',     sort_order: 3, night_allowance: 3000 },
-    { shift_type: 'paid_leave', label: '有給',         clock_in: '有給',  clock_out: '',      rest_time: '',     actual_time: '',     sort_order: 4, night_allowance: 0 },
+    { shift_type: 'day',        label: '日勤',        clock_in: '8:30',  clock_out: '17:00', rest_time: '2:00', actual_time: '6:30', sort_order: 1, night_allowance: 0,    show_in_allowance: false },
+    { shift_type: 'night_full', label: '夜勤(日+夜)', clock_in: '',       clock_out: '',      rest_time: '',     actual_time: '',     sort_order: 2, night_allowance: 5000, show_in_allowance: true },
+    { shift_type: 'night_only', label: '夜勤(夜のみ)', clock_in: '',      clock_out: '',      rest_time: '',     actual_time: '',     sort_order: 3, night_allowance: 3000, show_in_allowance: true },
+    { shift_type: 'paid_leave', label: '有給',         clock_in: '有給',  clock_out: '',      rest_time: '',     actual_time: '',     sort_order: 4, night_allowance: 0,    show_in_allowance: false },
   ];
   for (const s of defaultSettings) {
     await query(
-      `INSERT INTO shift_settings (shift_type, label, clock_in, clock_out, rest_time, actual_time, is_builtin, sort_order, night_allowance)
-       VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7, $8)
+      `INSERT INTO shift_settings (shift_type, label, clock_in, clock_out, rest_time, actual_time, is_builtin, sort_order, night_allowance, show_in_allowance)
+       VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7, $8, $9)
        ON CONFLICT (shift_type) DO UPDATE SET is_builtin = TRUE,
          label = CASE WHEN shift_settings.label = '' THEN $2 ELSE shift_settings.label END,
          sort_order = CASE WHEN shift_settings.sort_order = 99 THEN $7 ELSE shift_settings.sort_order END`,
-      [s.shift_type, s.label, s.clock_in, s.clock_out, s.rest_time, s.actual_time, s.sort_order, s.night_allowance]
+      [s.shift_type, s.label, s.clock_in, s.clock_out, s.rest_time, s.actual_time, s.sort_order, s.night_allowance, s.show_in_allowance]
     );
   }
 

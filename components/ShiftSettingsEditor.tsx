@@ -66,7 +66,7 @@ export default function ShiftSettingsEditor() {
 
   useEffect(() => { load(); }, []);
 
-  const update = (shift_type: string, field: keyof Omit<ExtShiftSetting, 'shift_type' | 'is_builtin' | 'sort_order'>, value: string) => {
+  const update = (shift_type: string, field: keyof Omit<ExtShiftSetting, 'shift_type' | 'is_builtin' | 'sort_order'>, value: string | boolean) => {
     setSettings(prev => prev.map(s => s.shift_type === shift_type ? { ...s, [field]: value } : s));
   };
 
@@ -147,8 +147,9 @@ export default function ShiftSettingsEditor() {
           <div className="col-span-2">シフト種別</div>
           <div className="col-span-2 text-center">出勤時刻</div>
           <div className="col-span-2 text-center">退社時刻</div>
-          <div className="col-span-2 text-center">休憩時間</div>
-          <div className="col-span-2 text-center">実働時間</div>
+          <div className="col-span-1 text-center">休憩</div>
+          <div className="col-span-1 text-center">実働</div>
+          <div className="col-span-2 text-center" style={{ fontSize: '10px', lineHeight: '1.2' }}>手当設定<br/>に反映</div>
           <div className="col-span-1 text-center"></div>
         </div>
 
@@ -198,11 +199,25 @@ export default function ShiftSettingsEditor() {
                 <div className="col-span-2">
                   <TimeInput value={s.clock_out} onChange={v => update(s.shift_type, 'clock_out', v)} placeholder="例: 17:00" />
                 </div>
-                <div className="col-span-2">
-                  <TimeInput value={s.rest_time} onChange={v => update(s.shift_type, 'rest_time', v)} placeholder="例: 2:00" />
+                <div className="col-span-1">
+                  <TimeInput value={s.rest_time} onChange={v => update(s.shift_type, 'rest_time', v)} placeholder="2:00" />
                 </div>
-                <div className="col-span-2">
-                  <TimeInput value={s.actual_time} onChange={v => update(s.shift_type, 'actual_time', v)} placeholder="例: 6:30" />
+                <div className="col-span-1">
+                  <TimeInput value={s.actual_time} onChange={v => update(s.shift_type, 'actual_time', v)} placeholder="6:30" />
+                </div>
+                <div className="col-span-2 flex justify-center">
+                  <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={s.show_in_allowance ?? false}
+                      onChange={e => update(s.shift_type, 'show_in_allowance', e.target.checked as unknown as string)}
+                      className="w-4 h-4 rounded cursor-pointer"
+                      style={{ accentColor: GOLD }}
+                    />
+                    <span className="text-xs" style={{ color: s.show_in_allowance ? NAVY : '#9ca3af' }}>
+                      {s.show_in_allowance ? 'ON' : 'OFF'}
+                    </span>
+                  </label>
                 </div>
                 <div className="col-span-1 text-center">
                   {!isBuiltin && (

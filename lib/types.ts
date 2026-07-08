@@ -39,6 +39,7 @@ export interface ShiftSetting {
   rest_time: string;
   actual_time: string;
   night_allowance: number;
+  show_in_allowance: boolean;
   sort_order?: number;
   is_builtin?: boolean;
 }
