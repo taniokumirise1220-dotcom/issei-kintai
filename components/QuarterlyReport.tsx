@@ -10,13 +10,28 @@ interface Props {
 const NAVY = '#1B2B5E';
 const GOLD = '#C9A84C';
 
-function getQuarterMonths(year: number, quarter: number): { year: number; month: number }[] {
-  const startMonth = (quarter - 1) * 3 + 1;
+// 6月始まりの年度。令和8年(2026年)6月からスタート
+const FISCAL_START_MONTH = 6;
+const SYSTEM_START = { year: 2026, month: 6 };
+
+function isBeforeStart(y: number, m: number) {
+  return y < SYSTEM_START.year || (y === SYSTEM_START.year && m < SYSTEM_START.month);
+}
+
+function getFiscalYear(calYear: number, calMonth: number): number {
+  return calMonth >= FISCAL_START_MONTH ? calYear : calYear - 1;
+}
+
+function getFiscalQuarter(calMonth: number): number {
+  return Math.floor(((calMonth - FISCAL_START_MONTH + 12) % 12) / 3) + 1;
+}
+
+// fiscalYear: Q1が始まる6月の年
+function getQuarterMonths(fiscalYear: number, quarter: number): { year: number; month: number }[] {
+  const startMonth = FISCAL_START_MONTH + (quarter - 1) * 3; // 6, 9, 12, 15
   return [0, 1, 2].map(i => {
     const m = startMonth + i;
-    return m > 12
-      ? { year: year + 1, month: m - 12 }
-      : { year, month: m };
+    return m > 12 ? { year: fiscalYear + 1, month: m - 12 } : { year: fiscalYear, month: m };
   });
 }
 
@@ -55,10 +70,11 @@ interface CellData {
 
 export default function QuarterlyReport({ employees }: Props) {
   const now = new Date();
-  const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
+  const initFY = getFiscalYear(now.getFullYear(), now.getMonth() + 1);
+  const initQ  = getFiscalQuarter(now.getMonth() + 1);
 
-  const [year, setYear]       = useState(now.getFullYear());
-  const [quarter, setQuarter] = useState(currentQuarter);
+  const [year, setYear]       = useState(initFY);
+  const [quarter, setQuarter] = useState(initQ);
   const [data, setData]       = useState<Record<string, Record<string, CellData>>>({});
   const [loading, setLoading] = useState(false);
   const [shiftMap, setShiftMap] = useState<Record<string, ShiftSetting>>({});
@@ -85,6 +101,7 @@ export default function QuarterlyReport({ employees }: Props) {
       result[emp.id] = {};
 
       await Promise.all(months.map(async ({ year: y, month: m }) => {
+        if (isBeforeStart(y, m)) return; // スタート前の月はスキップ
         const key = `${y}-${m}`;
         const [attRes, payRes] = await Promise.all([
           fetch(`/api/attendance?employee_id=${emp.id}&year=${y}&month=${m}`),
@@ -110,6 +127,7 @@ export default function QuarterlyReport({ employees }: Props) {
   useEffect(() => { load(); }, [load]);
 
   const prevQuarter = () => {
+    if (year === SYSTEM_START.year && quarter === 1) return; // FY2026 Q1より前には戻れない
     if (quarter === 1) { setYear(y => y - 1); setQuarter(4); }
     else setQuarter(q => q - 1);
   };
@@ -120,8 +138,8 @@ export default function QuarterlyReport({ employees }: Props) {
 
   const quarterTotal = (empId: number) =>
     months.reduce((sum, { year: y, month: m }) => {
-      const v = data[empId]?.[`${y}-${m}`]?.value ?? 0;
-      return sum + v;
+      if (isBeforeStart(y, m)) return sum;
+      return sum + (data[empId]?.[`${y}-${m}`]?.value ?? 0);
     }, 0);
 
   return (
@@ -140,7 +158,7 @@ export default function QuarterlyReport({ employees }: Props) {
               style={{ color: GOLD }}>◀</button>
             <div className="text-center">
               <div className="text-xs tracking-widest mb-1" style={{ color: 'rgba(255,255,255,0.5)' }}>PERIOD</div>
-              <span className="text-xl font-bold text-white">{year}年 Q{quarter}</span>
+              <span className="text-xl font-bold text-white">{year}年度 Q{quarter}</span>
               <div className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
                 {months.map(({ month: m }) => `${m}月`).join('・')}
               </div>
@@ -176,9 +194,12 @@ export default function QuarterlyReport({ employees }: Props) {
                     <td className="px-6 py-4 font-medium" style={{ color: NAVY }}>{emp.name}</td>
                     {months.map(({ year: y, month: m }) => {
                       const cell = data[emp.id]?.[`${y}-${m}`];
+                      const before = isBeforeStart(y, m);
                       return (
                         <td key={`${y}-${m}`} className="px-6 py-4 text-right">
-                          {cell !== undefined ? (
+                          {before ? (
+                            <span className="text-xs" style={{ color: '#e5e7eb' }}>集計対象外</span>
+                          ) : cell !== undefined ? (
                             <span>
                               <span className="font-semibold" style={{ color: NAVY }}>
                                 {cell.value.toLocaleString()}
@@ -208,13 +229,20 @@ export default function QuarterlyReport({ employees }: Props) {
                 <tr style={{ background: '#FBF7EE' }}>
                   <td className="px-6 py-4 font-bold" style={{ color: NAVY }}>合計</td>
                   {months.map(({ year: y, month: m }) => {
-                    const monthTotal = employees.reduce((sum, emp) => {
+                    const before = isBeforeStart(y, m);
+                    const monthTotal = before ? 0 : employees.reduce((sum, emp) => {
                       return sum + (data[emp.id]?.[`${y}-${m}`]?.value ?? 0);
                     }, 0);
                     return (
                       <td key={`${y}-${m}`} className="px-6 py-4 text-right">
-                        <span className="font-bold" style={{ color: NAVY }}>{monthTotal.toLocaleString()}</span>
-                        <span className="text-xs ml-1" style={{ color: '#9ca3af' }}>円</span>
+                        {before ? (
+                          <span className="text-xs" style={{ color: '#e5e7eb' }}>—</span>
+                        ) : (
+                          <>
+                            <span className="font-bold" style={{ color: NAVY }}>{monthTotal.toLocaleString()}</span>
+                            <span className="text-xs ml-1" style={{ color: '#9ca3af' }}>円</span>
+                          </>
+                        )}
                       </td>
                     );
                   })}
