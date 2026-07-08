@@ -176,11 +176,21 @@ export default function ShiftSettingsEditor() {
                   >▼</button>
                 </div>
 
-                <div className="col-span-2 flex items-center gap-1.5">
-                  <span className="px-2 py-1 rounded-full text-xs font-bold" style={{ background: color.bg, color: color.text }}>
-                    {s.label || s.shift_type}
-                  </span>
-                  {isBuiltin && <span className="text-xs" style={{ color: '#d1d5db' }}>固定</span>}
+                <div className="col-span-2">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={s.label}
+                      onChange={e => update(s.shift_type, 'label', e.target.value)}
+                      className="w-full px-2 py-1.5 border rounded text-xs font-bold focus:outline-none"
+                      style={{ borderColor: '#d1d5db', background: color.bg, color: color.text }}
+                      onFocus={e => (e.target.style.borderColor = GOLD)}
+                      onBlur={e => (e.target.style.borderColor = '#d1d5db')}
+                    />
+                    {isBuiltin && (
+                      <span className="absolute -top-2 right-1 text-xs px-1" style={{ color: '#d1d5db', fontSize: '9px' }}>固定</span>
+                    )}
+                  </div>
                 </div>
                 <div className="col-span-2">
                   <TimeInput value={s.clock_in} onChange={v => update(s.shift_type, 'clock_in', v)} placeholder="例: 8:30" />
