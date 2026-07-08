@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Attendance, Employee, ShiftType } from '@/lib/types';
+import { Attendance, Employee, ShiftSetting, ShiftType } from '@/lib/types';
 
 interface Props {
   employee: Employee;
@@ -12,7 +12,7 @@ interface Props {
 const NAVY = '#1B2B5E';
 const GOLD = '#C9A84C';
 
-function calcPayroll(employee: Employee, attendance: Attendance[]) {
+function calcPayroll(employee: Employee, attendance: Attendance[], shiftMap: Record<string, ShiftSetting>) {
   const basicPay   = employee.monthly_salary ?? 0;
   let payrollNight = 0;
   let stubBasicPay = 0;
@@ -20,13 +20,15 @@ function calcPayroll(employee: Employee, attendance: Attendance[]) {
 
   for (const a of attendance) {
     const shift = a.shift_type as ShiftType;
+    const nightAmt = shiftMap[shift]?.night_allowance ?? 0;
     if (shift === 'night_full') {
       stubBasicPay   += employee.daily_rate;
-      stubNightAllow += employee.daily_rate + 5000;
-      payrollNight   += 5000;
-    } else if (shift === 'night_only') {
-      stubNightAllow += employee.daily_rate + 3000;
-      payrollNight   += 3000;
+      stubNightAllow += employee.daily_rate + nightAmt;
+      payrollNight   += nightAmt;
+    } else if (nightAmt > 0) {
+      // night_only またはカスタム夜間シフト
+      stubNightAllow += employee.daily_rate + nightAmt;
+      payrollNight   += nightAmt;
     } else {
       stubBasicPay += employee.daily_rate;
     }
@@ -48,10 +50,21 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
   const [snapNight, setSnapNight]     = useState<number | null>(null);
   const [snapAdv1, setSnapAdv1]       = useState<number | null>(null);
   const [snapTotal, setSnapTotal]     = useState<number | null>(null);
+  const [shiftMap, setShiftMap]       = useState<Record<string, ShiftSetting>>({});
   const [saving, setSaving]           = useState(false);
   const [toast, setToast]             = useState<string | null>(null);
 
   const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 2500); };
+
+  useEffect(() => {
+    fetch('/api/shift-settings', { cache: 'no-store' })
+      .then(r => r.json())
+      .then((data: ShiftSetting[]) => {
+        const map: Record<string, ShiftSetting> = {};
+        for (const s of data) map[s.shift_type] = s;
+        setShiftMap(map);
+      });
+  }, []);
 
   const load = useCallback(async () => {
     const [attRes, payRes] = await Promise.all([
@@ -123,7 +136,7 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
     showToast('確定を解除しました');
   };
 
-  const { basicPay, nightAllowance, advance1 } = calcPayroll(employee, attendance);
+  const { basicPay, nightAllowance, advance1 } = calcPayroll(employee, attendance, shiftMap);
 
   // 確定済みの場合はスナップショット値を表示
   const displayBasic = confirmed && snapBasic !== null ? snapBasic : basicPay;

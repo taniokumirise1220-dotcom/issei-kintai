@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Attendance, Employee, ShiftType } from '@/lib/types';
+import { Attendance, Employee, ShiftSetting, ShiftType } from '@/lib/types';
 
 interface Props {
   employees: Employee[];
@@ -20,7 +20,7 @@ function getQuarterMonths(year: number, quarter: number): { year: number; month:
   });
 }
 
-function calcAdvance1(employee: Employee, attendance: Attendance[]): number {
+function calcAdvance1(employee: Employee, attendance: Attendance[], shiftMap: Record<string, ShiftSetting>): number {
   const basicPay = employee.monthly_salary ?? 0;
   let payrollNight = 0;
   let stubBasicPay = 0;
@@ -28,13 +28,14 @@ function calcAdvance1(employee: Employee, attendance: Attendance[]): number {
 
   for (const a of attendance) {
     const shift = a.shift_type as ShiftType;
+    const nightAmt = shiftMap[shift]?.night_allowance ?? 0;
     if (shift === 'night_full') {
       stubBasicPay   += employee.daily_rate;
-      stubNightAllow += employee.daily_rate + 5000;
-      payrollNight   += 5000;
-    } else if (shift === 'night_only') {
-      stubNightAllow += employee.daily_rate + 3000;
-      payrollNight   += 3000;
+      stubNightAllow += employee.daily_rate + nightAmt;
+      payrollNight   += nightAmt;
+    } else if (nightAmt > 0) {
+      stubNightAllow += employee.daily_rate + nightAmt;
+      payrollNight   += nightAmt;
     } else {
       stubBasicPay += employee.daily_rate;
     }
@@ -58,11 +59,22 @@ export default function QuarterlyReport({ employees }: Props) {
   const [quarter, setQuarter] = useState(currentQuarter);
   const [data, setData]       = useState<Record<string, Record<string, CellData>>>({});
   const [loading, setLoading] = useState(false);
+  const [shiftMap, setShiftMap] = useState<Record<string, ShiftSetting>>({});
 
   const months = getQuarterMonths(year, quarter);
 
+  useEffect(() => {
+    fetch('/api/shift-settings', { cache: 'no-store' })
+      .then(r => r.json())
+      .then((data: ShiftSetting[]) => {
+        const map: Record<string, ShiftSetting> = {};
+        for (const s of data) map[s.shift_type] = s;
+        setShiftMap(map);
+      });
+  }, []);
+
   const load = useCallback(async () => {
-    if (employees.length === 0) return;
+    if (employees.length === 0 || Object.keys(shiftMap).length === 0) return;
     setLoading(true);
 
     const result: Record<string, Record<string, CellData>> = {};
@@ -83,7 +95,7 @@ export default function QuarterlyReport({ employees }: Props) {
         if (pay.confirmed && pay.snap_advance1 !== null && pay.snap_advance1 !== undefined) {
           value = pay.snap_advance1;
         } else {
-          value = calcAdvance1(emp, att);
+          value = calcAdvance1(emp, att, shiftMap);
         }
         result[emp.id][key] = { value, confirmed: pay.confirmed ?? false };
       }));
@@ -91,7 +103,7 @@ export default function QuarterlyReport({ employees }: Props) {
 
     setData(result);
     setLoading(false);
-  }, [employees, year, quarter]);
+  }, [employees, year, quarter, shiftMap]);
 
   useEffect(() => { load(); }, [load]);
 

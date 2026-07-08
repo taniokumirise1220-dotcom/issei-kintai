@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Employee } from '@/lib/types';
+import { Employee, ShiftSetting } from '@/lib/types';
 
 interface Props {
   employees: Employee[];
@@ -11,18 +11,12 @@ interface Props {
 const NAVY = '#1B2B5E';
 const GOLD = '#C9A84C';
 
-interface Row {
-  id: number;
-  name: string;
-  family_allowance: number;
-  rent_deduction: number;
-}
-
 function NumInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
     <input
       type="number"
       min={0}
+      step={500}
       value={value}
       onChange={e => onChange(Number(e.target.value))}
       className="w-full px-3 py-2 border rounded text-sm text-right focus:outline-none"
@@ -33,53 +27,40 @@ function NumInput({ value, onChange }: { value: number; onChange: (v: number) =>
   );
 }
 
-export default function AllowanceSettings({ employees, onUpdated }: Props) {
-  const [rows, setRows] = useState<Row[]>([]);
+export default function AllowanceSettings({ employees: _employees, onUpdated: _onUpdated }: Props) {
+  const [settings, setSettings] = useState<ShiftSetting[]>([]);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-
-  useEffect(() => {
-    setRows(employees.map(e => ({
-      id: e.id,
-      name: e.name,
-      family_allowance: e.family_allowance ?? 0,
-      rent_deduction: e.rent_deduction ?? 0,
-    })));
-  }, [employees]);
-
-  const update = (id: number, field: 'family_allowance' | 'rent_deduction', value: number) => {
-    setRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r));
-  };
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
   };
 
+  const load = () =>
+    fetch('/api/shift-settings', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(setSettings);
+
+  useEffect(() => { load(); }, []);
+
+  const update = (shift_type: string, value: number) => {
+    setSettings(prev => prev.map(s => s.shift_type === shift_type ? { ...s, night_allowance: value } : s));
+  };
+
   const save = async () => {
     setSaving(true);
-    const emp = employees;
-    await Promise.all(rows.map(row => {
-      const orig = emp.find(e => e.id === row.id)!;
-      return fetch(`/api/employees/${row.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: orig.name,
-          daily_rate: orig.daily_rate,
-          monthly_salary: orig.monthly_salary ?? 0,
-          family_allowance: row.family_allowance,
-          rent_deduction: row.rent_deduction,
-        }),
-      });
-    }));
+    await fetch('/api/shift-settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings),
+    });
     setSaving(false);
-    onUpdated();
     showToast('保存しました');
   };
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-2xl mx-auto">
       {toast && (
         <div className="fixed top-6 right-6 z-50 px-5 py-3 rounded shadow-lg text-sm font-medium text-white"
           style={{ background: NAVY, borderLeft: `4px solid ${GOLD}` }}>
@@ -94,7 +75,7 @@ export default function AllowanceSettings({ employees, onUpdated }: Props) {
           <h2 className="text-2xl font-bold text-white">手当設定</h2>
           <div className="mt-2" style={{ width: 40, height: 2, background: GOLD }} />
           <p className="mt-3 text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            従業員ごとのデフォルト手当・控除額を設定します。給与明細の月次設定で個別に上書きすることもできます。
+            シフト種別ごとの夜間手当単価を設定します。給与計算・前借①の計算に反映されます。
           </p>
         </div>
       </div>
@@ -102,29 +83,30 @@ export default function AllowanceSettings({ employees, onUpdated }: Props) {
       {/* Table */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
         <div className="grid grid-cols-12 px-6 py-3 text-xs font-bold tracking-wider" style={{ background: NAVY, color: GOLD }}>
-          <div className="col-span-4">氏名</div>
-          <div className="col-span-3 text-right">家族手当 (円)</div>
-          <div className="col-span-1 text-center text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>支給</div>
-          <div className="col-span-3 text-right">家賃控除 (円)</div>
-          <div className="col-span-1 text-center text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>控除</div>
+          <div className="col-span-5">シフト種別</div>
+          <div className="col-span-5 text-right">夜間手当単価 (円/回)</div>
+          <div className="col-span-2" />
         </div>
 
         <div className="divide-y divide-gray-100">
-          {rows.map((row, i) => (
-            <div key={row.id} className="grid grid-cols-12 items-center px-6 py-3 gap-2"
+          {settings.map((s, i) => (
+            <div key={s.shift_type} className="grid grid-cols-12 items-center px-6 py-4 gap-3"
               style={{ background: i % 2 === 0 ? 'white' : '#f9fafb' }}>
-              <div className="col-span-4 font-medium text-sm" style={{ color: NAVY }}>{row.name}</div>
-              <div className="col-span-3">
-                <NumInput value={row.family_allowance} onChange={v => update(row.id, 'family_allowance', v)} />
+              <div className="col-span-5">
+                <span className="font-medium text-sm" style={{ color: NAVY }}>{s.label || s.shift_type}</span>
+                {s.is_builtin && (
+                  <span className="ml-2 text-xs" style={{ color: '#d1d5db' }}>固定</span>
+                )}
               </div>
-              <div className="col-span-1 text-center">
-                <span className="text-xs px-1.5 py-0.5 rounded-full font-bold" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>支給</span>
+              <div className="col-span-5">
+                <NumInput value={s.night_allowance ?? 0} onChange={v => update(s.shift_type, v)} />
               </div>
-              <div className="col-span-3">
-                <NumInput value={row.rent_deduction} onChange={v => update(row.id, 'rent_deduction', v)} />
-              </div>
-              <div className="col-span-1 text-center">
-                <span className="text-xs px-1.5 py-0.5 rounded-full font-bold" style={{ background: '#FFF1F2', color: '#BE123C' }}>控除</span>
+              <div className="col-span-2 text-xs" style={{ color: '#9ca3af' }}>
+                {(s.night_allowance ?? 0) > 0 ? (
+                  <span className="px-2 py-0.5 rounded-full font-bold" style={{ background: '#F5F3FF', color: '#6D28D9' }}>夜間</span>
+                ) : (
+                  <span style={{ color: '#d1d5db' }}>—</span>
+                )}
               </div>
             </div>
           ))}
@@ -143,7 +125,7 @@ export default function AllowanceSettings({ employees, onUpdated }: Props) {
       </div>
 
       <p className="text-xs text-gray-400 mt-3 text-center">
-        ここで設定した値が給与明細の初期値として使われます
+        夜間手当単価が0以外のシフトが給与計算の「夜間手当」に加算されます
       </p>
     </div>
   );
