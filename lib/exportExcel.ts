@@ -219,6 +219,82 @@ export async function exportAttendanceExcel(
   await saveWorkbook(wb, `出勤簿_${employeeName}_${year}年${month}月.xlsx`);
 }
 
+function addSummarySheet(
+  wb: ExcelJS.Workbook,
+  year: number,
+  month: number,
+  employees: Employee[],
+  allAttendance: Record<number, ShiftType[]>,
+  settings: ShiftSetting[]
+) {
+  const ws = wb.addWorksheet('従業員一覧');
+
+  // シフト種別列（有給以外、sort_order順）
+  const shiftCols = settings.filter(s => s.shift_behavior !== 'paid_leave');
+  const paidLeave = settings.find(s => s.shift_behavior === 'paid_leave' && s.is_builtin);
+
+  const headers = [
+    `${year}年${month}月`,
+    ...shiftCols.map(s => s.label),
+    paidLeave?.label ?? '有休',
+    '合計出勤日数',
+  ];
+
+  const colWidths = [16, ...shiftCols.map(() => 14), 10, 14];
+  ws.columns = colWidths.map(w => ({ width: w }));
+
+  const hRow = ws.addRow(headers);
+  hRow.eachCell({ includeEmpty: true }, (cell, i) => {
+    cell.font      = { bold: true, color: { argb: GOLD } };
+    cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } };
+    cell.alignment = { horizontal: i === 1 ? 'left' : 'center', vertical: 'middle' };
+  });
+
+  employees.forEach((emp, idx) => {
+    const shifts = allAttendance[emp.id] ?? [];
+    const counts = shiftCols.map(sc =>
+      shifts.filter(st => st === sc.shift_type).length
+    );
+    const paidCount = shifts.filter(st => {
+      const s = settings.find(x => x.shift_type === st);
+      return s?.shift_behavior === 'paid_leave';
+    }).length;
+    const workDays = shifts.filter(st => {
+      const s = settings.find(x => x.shift_type === st);
+      return s && s.shift_behavior !== 'paid_leave';
+    }).length;
+
+    const row = ws.addRow([emp.name, ...counts, paidCount, workDays]);
+    row.eachCell({ includeEmpty: true }, (cell, i) => {
+      cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: idx % 2 === 0 ? 'FFFFFFFF' : 'FFF9FAFB' } };
+      cell.alignment = { horizontal: i === 1 ? 'left' : 'center', vertical: 'middle' };
+      if (i > 1) cell.font = { color: { argb: NAVY } };
+    });
+  });
+
+  // 合計行
+  const totals = shiftCols.map(sc =>
+    employees.reduce((s, emp) => s + (allAttendance[emp.id] ?? []).filter(st => st === sc.shift_type).length, 0)
+  );
+  const paidTotal = employees.reduce((s, emp) =>
+    s + (allAttendance[emp.id] ?? []).filter(st => {
+      const x = settings.find(y => y.shift_type === st);
+      return x?.shift_behavior === 'paid_leave';
+    }).length, 0);
+  const workTotal = employees.reduce((s, emp) =>
+    s + (allAttendance[emp.id] ?? []).filter(st => {
+      const x = settings.find(y => y.shift_type === st);
+      return x && x.shift_behavior !== 'paid_leave';
+    }).length, 0);
+
+  const totRow = ws.addRow(['合計', ...totals, paidTotal, workTotal]);
+  totRow.eachCell({ includeEmpty: true }, (cell, i) => {
+    cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: TOT_BG } };
+    cell.font      = { bold: true, color: { argb: NAVY } };
+    cell.alignment = { horizontal: i === 1 ? 'left' : 'center', vertical: 'middle' };
+  });
+}
+
 // ── 全員分エクスポート（1ファイル・シート別） ──
 export async function exportAllAttendanceExcel(
   employees: Employee[],
@@ -232,16 +308,27 @@ export async function exportAllAttendanceExcel(
 
   const wb = new ExcelJS.Workbook();
 
+  // 全員の勤怠を先に取得
+  const allAttendance: Record<number, ShiftType[]> = {};
+  const allAttendanceMaps: Record<number, { map: Record<string, ShiftType>; prev: Record<string, number> }> = {};
+
   for (const emp of employees) {
     const attRes = await fetch(`/api/attendance?employee_id=${emp.id}&year=${year}&month=${month}`);
     const attArr: { date: string; shift_type: ShiftType }[] = await attRes.json();
     const attendance: Record<string, ShiftType> = {};
     for (const a of attArr) attendance[a.date.substring(0, 10)] = a.shift_type;
-
+    allAttendance[emp.id] = attArr.map(a => a.shift_type);
     const prevActualMin = await fetchPrevActualMin(emp.id, year, month, settingsMap);
+    allAttendanceMaps[emp.id] = { map: attendance, prev: prevActualMin };
+  }
 
-    // シート名は氏名（31文字制限）
-    addAttendanceSheet(wb, emp.name.slice(0, 31), year, month, attendance, settingsMap, prevActualMin);
+  // 従業員一覧シートを最初に追加
+  addSummarySheet(wb, year, month, employees, allAttendance, settings);
+
+  // 個人シートを追加
+  for (const emp of employees) {
+    const { map, prev } = allAttendanceMaps[emp.id];
+    addAttendanceSheet(wb, emp.name.slice(0, 31), year, month, map, settingsMap, prev);
   }
 
   await saveWorkbook(wb, `出勤簿_全員_${year}年${month}月.xlsx`);
