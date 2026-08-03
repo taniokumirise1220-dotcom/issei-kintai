@@ -95,9 +95,9 @@ export default function PayStub({ employee, year, month }: Props) {
     if (behavior === 'night_full') {
       basicPay += employee.daily_rate;
       basicPayDays += 1;
-      nightAllowance += employee.daily_rate + nightAmt;
+      nightAllowance += nightAmt;
     } else if (behavior === 'night_only') {
-      nightAllowance += employee.daily_rate + nightAmt;
+      nightAllowance += nightAmt;
     } else if (behavior === 'paid_leave') {
       basicPay += employee.daily_rate;
       basicPayDays += 1;
