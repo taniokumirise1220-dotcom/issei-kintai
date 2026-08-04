@@ -55,7 +55,7 @@ export default function PayStub({ employee, year, month }: Props) {
       });
     } else {
       setForm({
-        family_allowance: 0,
+        family_allowance: employee.family_allowance ?? 0,
         skill_allowance: 0,
         business_trip_allowance: 0,
         rent_deduction: 0,
