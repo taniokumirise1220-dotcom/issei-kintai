@@ -61,6 +61,62 @@ export async function POST() {
     )
   `);
 
+  // 手当・控除項目マスタ（給与明細の入力項目を自由に設定できる）
+  await query(`
+    CREATE TABLE IF NOT EXISTS allowance_items (
+      id SERIAL PRIMARY KEY,
+      label VARCHAR(50) NOT NULL,
+      kind VARCHAR(10) NOT NULL DEFAULT 'allowance',
+      sort_order INTEGER NOT NULL DEFAULT 99,
+      code VARCHAR(50) UNIQUE
+    )
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS monthly_allowance_values (
+      id SERIAL PRIMARY KEY,
+      employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+      year INTEGER NOT NULL,
+      month INTEGER NOT NULL,
+      item_id INTEGER REFERENCES allowance_items(id) ON DELETE CASCADE,
+      amount INTEGER NOT NULL DEFAULT 0,
+      UNIQUE(employee_id, year, month, item_id)
+    )
+  `);
+
+  // 既定の手当・控除項目（旧カラムから引き継ぎ）
+  const defaultItems = [
+    { code: 'family_allowance',        label: '家族手当',   kind: 'allowance', sort_order: 1 },
+    { code: 'skill_allowance',         label: '能力手当',   kind: 'allowance', sort_order: 2 },
+    { code: 'business_trip_allowance', label: '出張手当',   kind: 'allowance', sort_order: 3 },
+    { code: 'rent_deduction',          label: '家賃控除',   kind: 'deduction', sort_order: 4 },
+    { code: 'utilities_deduction',     label: '水道光熱費', kind: 'deduction', sort_order: 5 },
+  ];
+  for (const it of defaultItems) {
+    await query(
+      `INSERT INTO allowance_items (label, kind, sort_order, code)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (code) DO NOTHING`,
+      [it.label, it.kind, it.sort_order, it.code]
+    );
+  }
+
+  // 旧 monthly_allowances の値を1度だけ新テーブルへ移行
+  const migrated = await query<{ cnt: string }>(`SELECT COUNT(*) as cnt FROM monthly_allowance_values`);
+  if (parseInt(migrated[0].cnt) === 0) {
+    for (const it of defaultItems) {
+      await query(
+        `INSERT INTO monthly_allowance_values (employee_id, year, month, item_id, amount)
+         SELECT ma.employee_id, ma.year, ma.month, ai.id, ma.${it.code}
+         FROM monthly_allowances ma
+         CROSS JOIN allowance_items ai
+         WHERE ai.code = $1 AND ma.${it.code} <> 0
+         ON CONFLICT (employee_id, year, month, item_id) DO NOTHING`,
+        [it.code]
+      );
+    }
+  }
+
   await query(`
     CREATE TABLE IF NOT EXISTS shift_settings (
       shift_type VARCHAR(50) PRIMARY KEY,

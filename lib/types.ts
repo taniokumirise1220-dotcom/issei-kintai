@@ -18,17 +18,18 @@ export interface Attendance {
   shift_type: ShiftType;
 }
 
-export interface MonthlyAllowance {
+export interface AllowanceItem {
   id: number;
-  employee_id: number;
-  year: number;
-  month: number;
-  family_allowance: number;
-  skill_allowance: number;
-  business_trip_allowance: number;
-  rent_deduction: number;
-  utilities_deduction: number;
+  label: string;
+  kind: 'allowance' | 'deduction';
+  sort_order: number;
+  code: string | null;
+}
+
+export interface MonthlyAllowance {
   persistent: boolean;
+  /** item_id → 金額 */
+  values: Record<number, number>;
 }
 
 export interface ShiftSetting {

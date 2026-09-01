@@ -11,36 +11,49 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Missing params' }, { status: 400 });
   }
 
-  const rows = await query(
-    `SELECT * FROM monthly_allowances WHERE employee_id = $1 AND year = $2 AND month = $3`,
+  const valRows = await query<{ item_id: number; amount: number }>(
+    `SELECT item_id, amount FROM monthly_allowance_values
+     WHERE employee_id = $1 AND year = $2 AND month = $3`,
     [employeeId, year, month]
   );
-  return NextResponse.json(rows[0] || null);
+
+  const metaRows = await query<{ persistent: boolean }>(
+    `SELECT persistent FROM monthly_allowances WHERE employee_id = $1 AND year = $2 AND month = $3`,
+    [employeeId, year, month]
+  );
+
+  // 一度も保存していない月は null を返す（呼び出し側で既定値を入れる）
+  if (valRows.length === 0 && metaRows.length === 0) {
+    return NextResponse.json(null);
+  }
+
+  const values: Record<number, number> = {};
+  for (const r of valRows) values[r.item_id] = r.amount;
+
+  return NextResponse.json({ persistent: metaRows[0]?.persistent ?? false, values });
 }
 
 export async function POST(req: NextRequest) {
-  const {
-    employee_id, year, month,
-    family_allowance, skill_allowance, business_trip_allowance,
-    rent_deduction, utilities_deduction, persistent
-  } = await req.json();
+  const { employee_id, year, month, values, persistent } = await req.json();
 
-  const rows = await query(
-    `INSERT INTO monthly_allowances
-       (employee_id, year, month, family_allowance, skill_allowance, business_trip_allowance,
-        rent_deduction, utilities_deduction, persistent)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+  await query(
+    `INSERT INTO monthly_allowances (employee_id, year, month, persistent)
+     VALUES ($1, $2, $3, $4)
      ON CONFLICT (employee_id, year, month)
-     DO UPDATE SET
-       family_allowance = EXCLUDED.family_allowance,
-       skill_allowance = EXCLUDED.skill_allowance,
-       business_trip_allowance = EXCLUDED.business_trip_allowance,
-       rent_deduction = EXCLUDED.rent_deduction,
-       utilities_deduction = EXCLUDED.utilities_deduction,
-       persistent = EXCLUDED.persistent
-     RETURNING *`,
-    [employee_id, year, month, family_allowance || 0, skill_allowance || 0,
-     business_trip_allowance || 0, rent_deduction || 0, utilities_deduction || 0, persistent || false]
+     DO UPDATE SET persistent = EXCLUDED.persistent`,
+    [employee_id, year, month, persistent || false]
   );
-  return NextResponse.json(rows[0]);
+
+  const entries: [string, number][] = Object.entries(values ?? {}) as [string, number][];
+  for (const [itemId, amount] of entries) {
+    await query(
+      `INSERT INTO monthly_allowance_values (employee_id, year, month, item_id, amount)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (employee_id, year, month, item_id)
+       DO UPDATE SET amount = EXCLUDED.amount`,
+      [employee_id, year, month, parseInt(itemId), amount || 0]
+    );
+  }
+
+  return NextResponse.json({ ok: true });
 }
