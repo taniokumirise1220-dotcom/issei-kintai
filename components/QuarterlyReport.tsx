@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Attendance, Employee, ShiftSetting, ShiftType } from '@/lib/types';
+import { AllowanceItem, Attendance, calcAllowanceTotal, Employee, MonthlyAllowance, ShiftSetting, ShiftType } from '@/lib/types';
 
 interface Props {
   employees: Employee[];
@@ -35,7 +35,12 @@ function getQuarterMonths(fiscalYear: number, quarter: number): { year: number; 
   });
 }
 
-function calcAdvance1(employee: Employee, attendance: Attendance[], shiftMap: Record<string, ShiftSetting>): number {
+function calcAdvance1(
+  employee: Employee,
+  attendance: Attendance[],
+  shiftMap: Record<string, ShiftSetting>,
+  allowanceTotal: number
+): number {
   const basicPay = employee.monthly_salary ?? 0;
   let payrollNight = 0;
   let stubBasicPay = 0;
@@ -60,7 +65,7 @@ function calcAdvance1(employee: Employee, attendance: Attendance[], shiftMap: Re
 
   return (stubBasicPay - basicPay)
        + (stubNightAllow - payrollNight)
-       + (employee.family_allowance ?? 0);
+       + allowanceTotal;
 }
 
 interface CellData {
@@ -78,6 +83,8 @@ export default function QuarterlyReport({ employees }: Props) {
   const [data, setData]       = useState<Record<string, Record<string, CellData>>>({});
   const [loading, setLoading] = useState(false);
   const [shiftMap, setShiftMap] = useState<Record<string, ShiftSetting>>({});
+  const [items, setItems] = useState<AllowanceItem[]>([]);
+  const [itemsLoaded, setItemsLoaded] = useState(false);
 
   const months = getQuarterMonths(year, quarter);
 
@@ -89,10 +96,13 @@ export default function QuarterlyReport({ employees }: Props) {
         for (const s of data) map[s.shift_type] = s;
         setShiftMap(map);
       });
+    fetch('/api/allowance-items', { cache: 'no-store' })
+      .then(r => r.json())
+      .then((data: AllowanceItem[]) => { setItems(data); setItemsLoaded(true); });
   }, []);
 
   const load = useCallback(async () => {
-    if (employees.length === 0 || Object.keys(shiftMap).length === 0) return;
+    if (employees.length === 0 || Object.keys(shiftMap).length === 0 || !itemsLoaded) return;
     setLoading(true);
 
     const result: Record<string, Record<string, CellData>> = {};
@@ -103,18 +113,20 @@ export default function QuarterlyReport({ employees }: Props) {
       await Promise.all(months.map(async ({ year: y, month: m }) => {
         if (isBeforeStart(y, m)) return; // スタート前の月はスキップ
         const key = `${y}-${m}`;
-        const [attRes, payRes] = await Promise.all([
+        const [attRes, payRes, allowRes] = await Promise.all([
           fetch(`/api/attendance?employee_id=${emp.id}&year=${y}&month=${m}`),
           fetch(`/api/payroll?employee_id=${emp.id}&year=${y}&month=${m}`),
+          fetch(`/api/allowances?employee_id=${emp.id}&year=${y}&month=${m}`, { cache: 'no-store' }),
         ]);
         const att: Attendance[] = await attRes.json();
         const pay = await payRes.json();
+        const allowRow: MonthlyAllowance | null = await allowRes.json();
 
         let value: number;
         if (pay.confirmed && pay.snap_advance1 !== null && pay.snap_advance1 !== undefined) {
           value = pay.snap_advance1;
         } else {
-          value = calcAdvance1(emp, att, shiftMap);
+          value = calcAdvance1(emp, att, shiftMap, calcAllowanceTotal(items, allowRow, emp));
         }
         result[emp.id][key] = { value, confirmed: pay.confirmed ?? false };
       }));
@@ -122,7 +134,7 @@ export default function QuarterlyReport({ employees }: Props) {
 
     setData(result);
     setLoading(false);
-  }, [employees, year, quarter, shiftMap]);
+  }, [employees, year, quarter, shiftMap, items, itemsLoaded]);
 
   useEffect(() => { load(); }, [load]);
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { AllowanceItem, Attendance, Employee, MonthlyAllowance, SHIFT_LABELS, ShiftSetting, ShiftType } from '@/lib/types';
+import { AllowanceItem, Attendance, defaultAllowanceValue, Employee, MonthlyAllowance, SHIFT_LABELS, ShiftSetting, ShiftType } from '@/lib/types';
 
 interface Props {
   employee: Employee;
@@ -60,17 +60,13 @@ export default function PayStub({ employee, year, month }: Props) {
 
     const next: Record<number, number> = {};
     for (const it of itemList) {
-      if (allowRow) {
-        next[it.id] = allowRow.values[it.id] ?? 0;
-      } else {
-        // 未保存の月は従業員マスタの家族手当を初期値にする
-        next[it.id] = it.code === 'family_allowance' ? (employee.family_allowance ?? 0) : 0;
-      }
+      // 未保存の月は従業員マスタの家族手当を初期値にする
+      next[it.id] = allowRow ? (allowRow.values[it.id] ?? 0) : defaultAllowanceValue(it, employee);
     }
     setValues(next);
     setPersistent(allowRow?.persistent ?? false);
     setSaved(false);
-  }, [employee.id, employee.family_allowance, year, month, items, itemsLoaded]);
+  }, [employee, year, month, items, itemsLoaded]);
 
   useEffect(() => { load(); }, [load]);
 

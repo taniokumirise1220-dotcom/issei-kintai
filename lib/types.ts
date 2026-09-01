@@ -32,6 +32,22 @@ export interface MonthlyAllowance {
   values: Record<number, number>;
 }
 
+/** 未保存月の初期値。家族手当だけ従業員マスタの値を引き継ぐ */
+export function defaultAllowanceValue(item: AllowanceItem, employee: Employee): number {
+  return item.code === 'family_allowance' ? (employee.family_allowance ?? 0) : 0;
+}
+
+/** 給与明細の支給項目の合計（諸手当）。前借①の計算に使う */
+export function calcAllowanceTotal(
+  items: AllowanceItem[],
+  row: MonthlyAllowance | null,
+  employee: Employee
+): number {
+  return items
+    .filter(i => i.kind === 'allowance')
+    .reduce((sum, i) => sum + (row ? (row.values[i.id] ?? 0) : defaultAllowanceValue(i, employee)), 0);
+}
+
 export interface ShiftSetting {
   shift_type: ShiftType;
   label: string;
