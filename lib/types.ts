@@ -37,7 +37,17 @@ export function defaultAllowanceValue(item: AllowanceItem, employee: Employee): 
   return item.code === 'family_allowance' ? (employee.family_allowance ?? 0) : 0;
 }
 
-/** 給与明細の支給項目の合計（諸手当）。前借①の計算に使う */
+/** 2026年10月分より「前借」から「歩合給」に名称変更。過去月は旧名称のまま表示する */
+const COMMISSION_RENAME_START = { year: 2026, month: 10 };
+
+export function advanceLabel(year: number, month: number, index: 1 | 2): string {
+  const renamed =
+    year > COMMISSION_RENAME_START.year ||
+    (year === COMMISSION_RENAME_START.year && month >= COMMISSION_RENAME_START.month);
+  return `${renamed ? '歩合給' : '前借'}${index === 1 ? '①' : '②'}`;
+}
+
+/** 給与明細の支給項目の合計（諸手当）。歩合給①（旧・前借①）の計算に使う */
 export function calcAllowanceTotal(
   items: AllowanceItem[],
   row: MonthlyAllowance | null,

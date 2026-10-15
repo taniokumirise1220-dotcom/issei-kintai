@@ -124,7 +124,7 @@ export default function AllowanceSettings({ employees: _employees, onUpdated: _o
           <h2 className="text-2xl font-bold text-white">手当設定</h2>
           <div className="mt-2" style={{ width: 40, height: 2, background: GOLD }} />
           <p className="mt-3 text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            シフト種別の追加・編集・削除と、夜間手当単価を設定します。給与計算・前借①に反映されます。
+            シフト種別の追加・編集・削除と、夜間手当単価を設定します。給与計算・歩合給①に反映されます。
           </p>
         </div>
       </div>

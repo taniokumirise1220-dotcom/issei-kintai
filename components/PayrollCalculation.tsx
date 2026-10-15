@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { AllowanceItem, Attendance, calcAllowanceTotal, Employee, MonthlyAllowance, ShiftSetting, ShiftType } from '@/lib/types';
+import { advanceLabel, AllowanceItem, Attendance, calcAllowanceTotal, Employee, MonthlyAllowance, ShiftSetting, ShiftType } from '@/lib/types';
 
 interface Props {
   employee: Employee;
@@ -221,10 +221,10 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
           </div>
         ))}
 
-        {/* 前借① */}
+        {/* 歩合給①（2026年9月分までは前借①） */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <div>
-            <div className="text-sm font-semibold" style={{ color: NAVY }}>前借①</div>
+            <div className="text-sm font-semibold" style={{ color: NAVY }}>{advanceLabel(year, month, 1)}</div>
             <div className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
               {confirmed ? '確定済み' : '(給与明細基本給−月給) ＋ (給与明細夜間手当−夜間手当) ＋ 諸手当'}
             </div>
@@ -237,10 +237,10 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
           </div>
         </div>
 
-        {/* 前借② */}
+        {/* 歩合給②（2026年9月分までは前借②） */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
           <div>
-            <div className="text-sm font-semibold" style={{ color: NAVY }}>前借②</div>
+            <div className="text-sm font-semibold" style={{ color: NAVY }}>{advanceLabel(year, month, 2)}</div>
             <div className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>手入力</div>
           </div>
           {confirmed ? (
