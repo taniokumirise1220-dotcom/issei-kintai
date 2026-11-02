@@ -72,6 +72,11 @@ export async function POST() {
     )
   `);
 
+  // 歩合給①に反映するか。NULL のまま残っている行だけを1度きりで初期化するため既定値は付けない
+  // （毎回の init でユーザーの設定が上書きされないようにする）
+  await query(`ALTER TABLE allowance_items ADD COLUMN IF NOT EXISTS affects_advance BOOLEAN`);
+  await query(`UPDATE allowance_items SET affects_advance = (kind = 'allowance') WHERE affects_advance IS NULL`);
+
   await query(`
     CREATE TABLE IF NOT EXISTS monthly_allowance_values (
       id SERIAL PRIMARY KEY,

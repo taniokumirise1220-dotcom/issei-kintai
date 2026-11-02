@@ -24,6 +24,8 @@ export interface AllowanceItem {
   kind: 'allowance' | 'deduction';
   sort_order: number;
   code: string | null;
+  /** 歩合給①に反映するか。控除の場合は減算される */
+  affects_advance: boolean;
 }
 
 export interface MonthlyAllowance {
@@ -47,15 +49,20 @@ export function advanceLabel(year: number, month: number, index: 1 | 2): string 
   return `${renamed ? '歩合給' : '前借'}${index === 1 ? '①' : '②'}`;
 }
 
-/** 給与明細の支給項目の合計（諸手当）。歩合給①（旧・前借①）の計算に使う */
+/**
+ * 歩合給①（旧・前借①）に加算する諸手当の合計。
+ * 「歩合給①に反映」が有効な項目のみを対象とし、控除は減算する。
+ */
 export function calcAllowanceTotal(
   items: AllowanceItem[],
   row: MonthlyAllowance | null,
   employee: Employee
 ): number {
-  return items
-    .filter(i => i.kind === 'allowance')
-    .reduce((sum, i) => sum + (row ? (row.values[i.id] ?? 0) : defaultAllowanceValue(i, employee)), 0);
+  return items.reduce((sum, i) => {
+    if (!i.affects_advance) return sum;
+    const amount = row ? (row.values[i.id] ?? 0) : defaultAllowanceValue(i, employee);
+    return sum + (i.kind === 'deduction' ? -amount : amount);
+  }, 0);
 }
 
 export interface ShiftSetting {

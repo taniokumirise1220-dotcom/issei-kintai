@@ -234,8 +234,9 @@ export default function PayStub({ employee, year, month }: Props) {
             <div className="grid grid-cols-12 px-3 py-2 text-xs font-bold tracking-wider rounded-t"
               style={{ background: NAVY, color: GOLD }}>
               <div className="col-span-2 text-center">並び</div>
-              <div className="col-span-6">項目名</div>
-              <div className="col-span-3 text-center">区分</div>
+              <div className="col-span-4">項目名</div>
+              <div className="col-span-2 text-center">区分</div>
+              <div className="col-span-3 text-center">歩合給①に反映</div>
               <div className="col-span-1" />
             </div>
             <div className="divide-y divide-gray-100 border border-t-0 border-gray-200 rounded-b">
@@ -248,7 +249,7 @@ export default function PayStub({ employee, year, month }: Props) {
                     <button onClick={() => moveDraft(idx, 1)} disabled={idx === draft.length - 1}
                       className="px-1.5 py-0.5 text-xs rounded hover:bg-gray-200 disabled:opacity-25">▼</button>
                   </div>
-                  <div className="col-span-6">
+                  <div className="col-span-4">
                     <input
                       type="text"
                       value={it.label}
@@ -256,7 +257,7 @@ export default function PayStub({ employee, year, month }: Props) {
                       className="w-full px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
                     />
                   </div>
-                  <div className="col-span-3">
+                  <div className="col-span-2">
                     <select
                       value={it.kind}
                       onChange={e => patchDraft(it.id, { kind: e.target.value as AllowanceItem['kind'] })}
@@ -266,6 +267,19 @@ export default function PayStub({ employee, year, month }: Props) {
                       <option value="allowance">支給</option>
                       <option value="deduction">控除</option>
                     </select>
+                  </div>
+                  <div className="col-span-3 text-center">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={it.affects_advance}
+                        onChange={e => patchDraft(it.id, { affects_advance: e.target.checked })}
+                        className="w-4 h-4 accent-blue-600"
+                      />
+                      <span className="text-xs" style={{ color: it.affects_advance ? NAVY : '#9ca3af' }}>
+                        {it.affects_advance ? (it.kind === 'deduction' ? '減算' : '加算') : '対象外'}
+                      </span>
+                    </label>
                   </div>
                   <div className="col-span-1 text-center">
                     <button onClick={() => deleteItem(it.id)} disabled={busy}

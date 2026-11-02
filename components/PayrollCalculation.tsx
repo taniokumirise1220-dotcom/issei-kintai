@@ -57,7 +57,6 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
   const [snapAdv1, setSnapAdv1]       = useState<number | null>(null);
   const [snapTotal, setSnapTotal]     = useState<number | null>(null);
   const [shiftMap, setShiftMap]       = useState<Record<string, ShiftSetting>>({});
-  const [items, setItems]             = useState<AllowanceItem[]>([]);
   const [allowanceTotal, setAllowanceTotal] = useState(0);
   const [saving, setSaving]           = useState(false);
   const [toast, setToast]             = useState<string | null>(null);
@@ -72,22 +71,22 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
         for (const s of data) map[s.shift_type] = s;
         setShiftMap(map);
       });
-    fetch('/api/allowance-items', { cache: 'no-store' })
-      .then(r => r.json())
-      .then(setItems);
   }, []);
 
   const load = useCallback(async () => {
-    const [attRes, payRes, allowRes] = await Promise.all([
+    // 項目マスタも毎回読み直す（給与明細で「歩合給①に反映」を変えた直後に反映させるため）
+    const [attRes, payRes, allowRes, itemsRes] = await Promise.all([
       fetch(`/api/attendance?employee_id=${employee.id}&year=${year}&month=${month}`),
       fetch(`/api/payroll?employee_id=${employee.id}&year=${year}&month=${month}`),
       fetch(`/api/allowances?employee_id=${employee.id}&year=${year}&month=${month}`, { cache: 'no-store' }),
+      fetch('/api/allowance-items', { cache: 'no-store' }),
     ]);
     const att: Attendance[] = await attRes.json();
     const pay = await payRes.json();
     const allowRow: MonthlyAllowance | null = await allowRes.json();
+    const itemList: AllowanceItem[] = await itemsRes.json();
     setAttendance(att);
-    setAllowanceTotal(calcAllowanceTotal(items, allowRow, employee));
+    setAllowanceTotal(calcAllowanceTotal(itemList, allowRow, employee));
     setAdvance2(pay.advance2 ?? 0);
     setInputVal(String(pay.advance2 ?? 0));
     setConfirmed(pay.confirmed ?? false);
@@ -95,7 +94,7 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
     setSnapNight(pay.snap_night_allowance ?? null);
     setSnapAdv1(pay.snap_advance1 ?? null);
     setSnapTotal(pay.snap_total ?? null);
-  }, [employee, year, month, items]);
+  }, [employee, year, month]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -226,7 +225,7 @@ export default function PayrollCalculation({ employee, year, month }: Props) {
           <div>
             <div className="text-sm font-semibold" style={{ color: NAVY }}>{advanceLabel(year, month, 1)}</div>
             <div className="text-xs mt-0.5" style={{ color: '#9ca3af' }}>
-              {confirmed ? '確定済み' : '(給与明細基本給−月給) ＋ (給与明細夜間手当−夜間手当) ＋ 諸手当'}
+              {confirmed ? '確定済み' : '(給与明細基本給−月給) ＋ (給与明細夜間手当−夜間手当) ＋ 諸手当 − 対象控除'}
             </div>
           </div>
           <div className="text-right">

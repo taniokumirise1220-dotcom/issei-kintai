@@ -83,9 +83,6 @@ export default function QuarterlyReport({ employees }: Props) {
   const [data, setData]       = useState<Record<string, Record<string, CellData>>>({});
   const [loading, setLoading] = useState(false);
   const [shiftMap, setShiftMap] = useState<Record<string, ShiftSetting>>({});
-  const [items, setItems] = useState<AllowanceItem[]>([]);
-  const [itemsLoaded, setItemsLoaded] = useState(false);
-
   const months = getQuarterMonths(year, quarter);
 
   useEffect(() => {
@@ -96,14 +93,14 @@ export default function QuarterlyReport({ employees }: Props) {
         for (const s of data) map[s.shift_type] = s;
         setShiftMap(map);
       });
-    fetch('/api/allowance-items', { cache: 'no-store' })
-      .then(r => r.json())
-      .then((data: AllowanceItem[]) => { setItems(data); setItemsLoaded(true); });
   }, []);
 
   const load = useCallback(async () => {
-    if (employees.length === 0 || Object.keys(shiftMap).length === 0 || !itemsLoaded) return;
+    if (employees.length === 0 || Object.keys(shiftMap).length === 0) return;
     setLoading(true);
+
+    // 項目マスタも毎回読み直す（給与明細で「歩合給①に反映」を変えた直後に反映させるため）
+    const items: AllowanceItem[] = await (await fetch('/api/allowance-items', { cache: 'no-store' })).json();
 
     const result: Record<string, Record<string, CellData>> = {};
 
@@ -134,7 +131,7 @@ export default function QuarterlyReport({ employees }: Props) {
 
     setData(result);
     setLoading(false);
-  }, [employees, year, quarter, shiftMap, items, itemsLoaded]);
+  }, [employees, year, quarter, shiftMap]);
 
   useEffect(() => { load(); }, [load]);
 
